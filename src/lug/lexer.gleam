@@ -25,6 +25,7 @@ pub type Token {
   // literals
   Identifier(String)
   String(String)
+  LongString(String)
   Int(String)
   Float(String)
   CommentSingle(String)
@@ -106,6 +107,7 @@ pub type Token {
 
   // Invalid code
   UnterminatedString(String)
+  UnterminatedLongString(String)
   UnterminatedCommentMultiple(String)
   UnexpectedGrapheme(String)
 }
@@ -179,6 +181,29 @@ fn lex_loop(
     "--" <> rest -> {
       let #(lexer, token) =
         advance(lexer, rest, 2) |> lex_single_line_comment(lexer.offset)
+
+      lex_loop(lexer, [token, ..acc])
+    }
+
+    // Single line strings
+    "\"" <> rest -> {
+      let #(lexer, token) =
+        advance(lexer, rest, 1) |> lex_string(lexer.offset, 0, Double, String)
+
+      lex_loop(lexer, [token, ..acc])
+    }
+
+    "'" <> rest -> {
+      let #(lexer, token) =
+        advance(lexer, rest, 1) |> lex_string(lexer.offset, 0, Single, String)
+
+      lex_loop(lexer, [token, ..acc])
+    }
+
+    // Long strings
+    "[[" <> rest -> {
+      let #(lexer, token) =
+        advance(lexer, rest, 2) |> lex_long_string(lexer.offset, 0, 0)
 
       lex_loop(lexer, [token, ..acc])
     }
@@ -477,6 +502,92 @@ fn lex_multi_line_comment(lexer: Lexer, start: Int, slice: Int, depth: Int) {
     _ ->
       advance(lexer, drop_byte(lexer.source), 1)
       |> lex_multi_line_comment(start, slice + 1, depth)
+  }
+}
+
+type StringClosingQuote {
+  Single
+  Double
+}
+
+fn lex_string(
+  lexer: Lexer,
+  start: Int,
+  slice: Int,
+  closing_quote: StringClosingQuote,
+  emit: fn(String) -> Token,
+) -> #(Lexer, #(Token, Position)) {
+  case lexer.source {
+    "'" <> rest if closing_quote == Single ->
+      consume_string(lexer, rest, start, slice, emit)
+    "\"" <> rest if closing_quote == Double ->
+      consume_string(lexer, rest, start, slice, emit)
+
+    "\n" <> rest ->
+      advance(lexer, rest, 2)
+      |> lex_string(start, slice + 2, closing_quote, UnterminatedString)
+
+    "" -> {
+      let content = slice_bytes(lexer.original, start + 1, slice)
+      #(lexer, token(lexer, UnterminatedString(content)))
+    }
+
+    _ ->
+      advance(lexer, drop_byte(lexer.source), 1)
+      |> lex_string(start, slice + 1, closing_quote, emit)
+  }
+}
+
+fn consume_string(
+  lexer: Lexer,
+  rest: String,
+  offset: Int,
+  slice: Int,
+  emit: fn(String) -> Token,
+) {
+  let content = slice_bytes(lexer.original, offset + 1, slice)
+  let pos = Position(offset, lexer.column, lexer.line)
+
+  #(advance(lexer, rest, 1), #(emit(content), pos))
+}
+
+fn lex_long_string(lexer: Lexer, start: Int, slice: Int, depth: Int) {
+  case lexer.source {
+    "[" <> rest ->
+      case find_opening_brace(rest, depth, 0) {
+        option.Some(rest) ->
+          advance(lexer, rest, depth + 2)
+          |> lex_long_string(start, slice + depth + 2, depth + 1)
+
+        option.None ->
+          advance(lexer, rest, 1)
+          |> lex_long_string(start, slice + 1, depth)
+      }
+
+    "]" <> rest ->
+      case find_closing_brace(rest, depth, 0) {
+        option.Some(rest) if depth == 0 -> {
+          let content = slice_bytes(lexer.original, start + 1, slice)
+          #(advance(lexer, rest, depth + 1), token(lexer, LongString(content)))
+        }
+
+        option.Some(rest) ->
+          advance(lexer, rest, depth + 1)
+          |> lex_long_string(start, slice + depth + 1, depth - 1)
+
+        option.None ->
+          advance(lexer, rest, 1)
+          |> lex_long_string(start, slice + 1, depth + 1)
+      }
+
+    "" -> {
+      let content = slice_bytes(lexer.original, start + 1, slice)
+      #(lexer, token(lexer, UnterminatedLongString(content)))
+    }
+
+    _ ->
+      advance(lexer, drop_byte(lexer.source), 1)
+      |> lex_long_string(start, slice + 1, depth)
   }
 }
 
@@ -835,6 +946,7 @@ fn token_to_string(token: Token) -> String {
     // literals
     Identifier(str) -> str
     String(str) -> str
+    LongString(str) -> "[[" <> str <> "]]"
     Int(str) -> str
     Float(str) -> str
     CommentSingle(str) -> "--" <> str
@@ -916,6 +1028,7 @@ fn token_to_string(token: Token) -> String {
 
     // Invalid code
     UnterminatedString(str) -> "\"" <> str
+    UnterminatedLongString(str) -> "[[" <> str
     UnterminatedCommentMultiple(str) -> "--[[" <> str
     UnexpectedGrapheme(str) -> str
   }
