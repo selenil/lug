@@ -155,10 +155,34 @@ fn lex_loop(
 ) -> List(#(Token, Position)) {
   case lexer.source {
     // Whitespace
-    " " <> rest | "\t" <> rest -> lex_loop(advance(lexer, rest, 1), acc)
+    " " <> rest | "\t" <> rest -> {
+      let start = lexer.offset
+      let #(lexer, content) =
+        advance(lexer, rest, 1) |> lex_whitespace(start, 1)
+
+      case lexer.keep_whitespaces {
+        True -> {
+          let pos = Position(start, lexer.column, lexer.line)
+          lex_loop(lexer, [#(Space(content), pos), ..acc])
+        }
+        False -> lex_loop(lexer, acc)
+      }
+    }
 
     // Newline
-    "\n" <> rest | "\r" <> rest -> lex_loop(advance_line(lexer, rest, 1), acc)
+    "\n" <> rest | "\r" <> rest -> {
+      let start = lexer.offset
+      let #(lexer, content) =
+        advance_line(lexer, rest, 1) |> lex_whitespace(start, 1)
+
+      case lexer.keep_whitespaces {
+        True -> {
+          let pos = Position(start, lexer.column, lexer.line)
+          lex_loop(lexer, [#(Space(content), pos), ..acc])
+        }
+        False -> lex_loop(lexer, acc)
+      }
+    }
 
     // comments
     "--[" <> rest ->
@@ -461,6 +485,19 @@ fn lex_loop(
   }
 }
 
+fn lex_whitespace(lexer: Lexer, start: Int, slice: Int) {
+  case lexer.source {
+    "\n" <> rest | "\r" <> rest ->
+      lex_whitespace(advance_line(lexer, rest, 1), start, slice + 1)
+    " " <> rest | "\t" <> rest ->
+      lex_whitespace(advance(lexer, rest, 1), start, slice + 1)
+    _ -> {
+      let content = slice_bytes(lexer.original, start, slice)
+      #(lexer, content)
+    }
+  }
+}
+
 fn lex_single_line_comment(
   lexer: Lexer,
   start: Int,
@@ -541,6 +578,19 @@ fn lex_string(
     "\n" <> rest ->
       advance(lexer, rest, 2)
       |> lex_string(start, slice + 2, closing_quote, UnterminatedString)
+
+    "\\z" <> rest -> {
+      let #(lexer, content) =
+        lex_whitespace(advance(lexer, rest, 1), lexer.offset, 2)
+
+      lex_string(
+        lexer,
+        start,
+        slice + string.length(content),
+        closing_quote,
+        emit,
+      )
+    }
 
     "" -> {
       let content = slice_bytes(lexer.original, start + 1, slice)
