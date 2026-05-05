@@ -607,7 +607,11 @@ fn find_closing_brace(content: String, depth: Int, current: Int) {
   }
 }
 
-fn lex_lowercase_word(lexer: Lexer, start: Int, slice: Int) -> #(Lexer, String) {
+fn lex_lowercase_word(
+  lexer: Lexer,
+  start: Int,
+  slice: Int,
+) -> #(Lexer, String) {
   case lexer.source {
     "a" <> rest
     | "b" <> rest
@@ -655,7 +659,11 @@ fn lex_lowercase_word(lexer: Lexer, start: Int, slice: Int) -> #(Lexer, String) 
   }
 }
 
-fn lex_uppercase_word(lexer: Lexer, start: Int, slice: Int) -> #(Lexer, String) {
+fn lex_uppercase_word(
+  lexer: Lexer,
+  start: Int,
+  slice: Int,
+) -> #(Lexer, String) {
   case lexer.source {
     "a" <> rest
     | "b" <> rest
