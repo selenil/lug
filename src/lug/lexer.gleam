@@ -167,14 +167,20 @@ fn lex_loop(
           let #(lexer, token) =
             lex_multi_line_comment(lexer, lexer.offset, 0, 0)
 
-          lex_loop(lexer, [token, ..acc])
+          case lexer.keep_comments {
+            True -> lex_loop(lexer, [token, ..acc])
+            False -> lex_loop(lexer, acc)
+          }
         }
 
         _ -> {
           let #(lexer, token) =
             advance(lexer, rest, 2) |> lex_single_line_comment(lexer.offset)
 
-          lex_loop(lexer, [token, ..acc])
+          case lexer.keep_comments {
+            True -> lex_loop(lexer, [token, ..acc])
+            False -> lex_loop(lexer, acc)
+          }
         }
       }
 
@@ -182,7 +188,10 @@ fn lex_loop(
       let #(lexer, token) =
         advance(lexer, rest, 2) |> lex_single_line_comment(lexer.offset)
 
-      lex_loop(lexer, [token, ..acc])
+      case lexer.keep_comments {
+        True -> lex_loop(lexer, [token, ..acc])
+        False -> lex_loop(lexer, acc)
+      }
     }
 
     // Single line strings
