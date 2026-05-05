@@ -155,8 +155,10 @@ fn lex_loop(
 ) -> List(#(Token, Position)) {
   case lexer.source {
     // Whitespace
-    " " <> rest | "\n" <> rest | "\r" <> rest | "\t" <> rest ->
-      lex_loop(advance(lexer, rest, 1), acc)
+    " " <> rest | "\t" <> rest -> lex_loop(advance(lexer, rest, 1), acc)
+
+    // Newline
+    "\n" <> rest | "\r" <> rest -> lex_loop(advance_line(lexer, rest, 1), acc)
 
     // comments
     "--[" <> rest ->
@@ -503,6 +505,10 @@ fn lex_multi_line_comment(lexer: Lexer, start: Int, slice: Int, depth: Int) {
           |> lex_multi_line_comment(start, slice + 1, depth + 1)
       }
 
+    "\n" <> rest ->
+      advance_line(lexer, rest, 1)
+      |> lex_multi_line_comment(start, slice + 1, depth)
+
     "" -> {
       let content = slice_bytes(lexer.original, start + 1, slice)
       #(lexer, token(lexer, UnterminatedCommentMultiple(content)))
@@ -588,6 +594,10 @@ fn lex_long_string(lexer: Lexer, start: Int, slice: Int, depth: Int) {
           advance(lexer, rest, 1)
           |> lex_long_string(start, slice + 1, depth + 1)
       }
+
+    "\n" <> rest ->
+      advance_line(lexer, rest, 1)
+      |> lex_multi_line_comment(start, slice + 1, depth)
 
     "" -> {
       let content = slice_bytes(lexer.original, start + 1, slice)
@@ -933,7 +943,7 @@ fn advance(lexer: Lexer, source: String, offset: Int) -> Lexer {
   )
 }
 
-fn advance_new_line(lexer: Lexer, source: String, offset: Int) -> Lexer {
+fn advance_line(lexer: Lexer, source: String, offset: Int) -> Lexer {
   Lexer(
     ..lexer,
     source:,
