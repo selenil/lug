@@ -308,7 +308,7 @@ fn lex_loop(
         identifier -> Identifier(identifier)
       }
 
-      lex_loop(lexer, [token_at_position(tok, pos), ..acc])
+      lex_loop(lexer, [#(tok, pos), ..acc])
     }
 
     // Uppercase Name
@@ -344,7 +344,7 @@ fn lex_loop(
         advance(lexer, rest, 1)
         |> lex_uppercase_word(pos.offset, 1)
 
-      lex_loop(lexer, [token_at_position(Identifier(identifier), pos), ..acc])
+      lex_loop(lexer, [#(Identifier(identifier), pos), ..acc])
     }
 
     // hexadecimal numbers
@@ -506,7 +506,7 @@ fn lex_single_line_comment(
   let pos = Position(start, lexer.column, lexer.line)
 
   let lexer = advance(lexer, rest, string.length(comment))
-  #(lexer, token_at_position(CommentSingle(comment), pos))
+  #(lexer, #(CommentSingle(comment), pos))
 }
 
 fn lex_multi_line_comment(lexer: Lexer, start: Int, slice: Int, depth: Int) {
@@ -902,7 +902,7 @@ fn consume_float(
 ) -> #(Lexer, #(Token, Position)) {
   let content = slice_bytes(lexer.original, start, slice)
   let pos = Position(start, lexer.column, lexer.line)
-  #(lexer, token_at_position(Float(content), pos))
+  #(lexer, #(Float(content), pos))
 }
 
 fn lex_hexadecimal_int(
@@ -1005,10 +1005,6 @@ fn advance_line(lexer: Lexer, source: String, offset: Int) -> Lexer {
 
 fn token(lexer: Lexer, token: Token) -> #(Token, Position) {
   #(token, Position(lexer.offset, lexer.column, lexer.line))
-}
-
-fn token_at_position(token, position) {
-  #(token, position)
 }
 
 pub fn to_string(tokens: List(#(Token, Position))) -> String {
