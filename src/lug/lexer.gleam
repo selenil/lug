@@ -408,7 +408,7 @@ fn lex_loop(
     "/" <> rest ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, Slash), ..acc])
     "%" <> rest ->
-      lex_loop(advance(lexer, rest, 1), [token(lexer, Plus), ..acc])
+      lex_loop(advance(lexer, rest, 1), [token(lexer, Percent), ..acc])
     "^" <> rest ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, Circumflex), ..acc])
 
