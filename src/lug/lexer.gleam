@@ -141,9 +141,12 @@ pub fn lex(lexer: Lexer) -> List(#(Token, Position)) {
 // removes shebang from first line if it is present
 fn check_for_shebang(lexer: Lexer) -> Lexer {
   case lexer.source {
-    "#!" <> _rest -> {
-      let #(_shebang, rest) = split_until_new_line(lexer, lexer.source)
-      Lexer(..lexer, original: rest, source: rest)
+    "#" <> _rest -> {
+      let source = case split_until_new_line(lexer, lexer.source) {
+        #(_shebang, "\n" <> rest) -> rest
+        #(_shebang, rest) -> rest
+      }
+      Lexer(..lexer, original: source, source:)
     }
     _ -> lexer
   }
