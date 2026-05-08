@@ -28,8 +28,8 @@ pub type Token {
   LongString(String)
   Int(String)
   Float(String)
-  CommentSingle(String)
-  CommentMultiple(String)
+  Comment(String)
+  LongComment(String)
 
   // keywords
   And
@@ -108,7 +108,7 @@ pub type Token {
   // Invalid code
   UnterminatedString(String)
   UnterminatedLongString(String)
-  UnterminatedCommentMultiple(String)
+  UnterminatedLongComment(String)
   UnexpectedGrapheme(String)
 }
 
@@ -193,8 +193,7 @@ fn lex_loop(
       case rest {
         "[" <> rest -> {
           let lexer = advance(lexer, rest, 4)
-          let #(lexer, token) =
-            lex_multi_line_comment(lexer, lexer.offset, 0, 0)
+          let #(lexer, token) = lex_long_comment(lexer, lexer.offset, 0, 0)
 
           case lexer.keep_comments {
             True -> lex_loop(lexer, [token, ..acc])
@@ -204,7 +203,7 @@ fn lex_loop(
 
         _ -> {
           let #(lexer, token) =
-            advance(lexer, rest, 2) |> lex_single_line_comment(lexer.offset)
+            advance(lexer, rest, 2) |> lex_comment(lexer.offset)
 
           case lexer.keep_comments {
             True -> lex_loop(lexer, [token, ..acc])
@@ -214,8 +213,7 @@ fn lex_loop(
       }
 
     "--" <> rest -> {
-      let #(lexer, token) =
-        advance(lexer, rest, 2) |> lex_single_line_comment(lexer.offset)
+      let #(lexer, token) = advance(lexer, rest, 2) |> lex_comment(lexer.offset)
 
       case lexer.keep_comments {
         True -> lex_loop(lexer, [token, ..acc])
@@ -501,62 +499,56 @@ fn lex_whitespace(lexer: Lexer, start: Int, slice: Int) {
   }
 }
 
-fn lex_single_line_comment(
-  lexer: Lexer,
-  start: Int,
-) -> #(Lexer, #(Token, Position)) {
+fn lex_comment(lexer: Lexer, start: Int) -> #(Lexer, #(Token, Position)) {
   let #(comment, rest) = split_until_new_line(lexer, lexer.source)
   let pos = Position(start, lexer.column, lexer.line)
 
   let lexer = advance(lexer, rest, string.length(comment))
-  #(lexer, #(CommentSingle(comment), pos))
+  #(lexer, #(Comment(comment), pos))
 }
 
-fn lex_multi_line_comment(lexer: Lexer, start: Int, slice: Int, depth: Int) {
+fn lex_long_comment(lexer: Lexer, start: Int, slice: Int, depth: Int) {
   case lexer.source {
     // check if we are entering in a nested multine comment
     "[" <> rest ->
       case find_opening_brace(rest, depth, 0) {
         option.Some(rest) ->
           advance(lexer, rest, depth + 2)
-          |> lex_multi_line_comment(start, slice + depth + 2, depth + 1)
+          |> lex_long_comment(start, slice + depth + 2, depth + 1)
 
         option.None ->
           advance(lexer, rest, 1)
-          |> lex_multi_line_comment(start, slice + 1, depth)
+          |> lex_long_comment(start, slice + 1, depth)
       }
 
     "]" <> rest ->
       case find_closing_brace(rest, depth, 0) {
         option.Some(rest) if depth == 0 -> {
           let content = slice_bytes(lexer.original, start + 1, slice)
-          #(
-            advance(lexer, rest, depth + 1),
-            token(lexer, CommentMultiple(content)),
-          )
+          #(advance(lexer, rest, depth + 1), token(lexer, LongComment(content)))
         }
 
         option.Some(rest) ->
           advance(lexer, rest, depth + 1)
-          |> lex_multi_line_comment(start, slice + depth + 1, depth - 1)
+          |> lex_long_comment(start, slice + depth + 1, depth - 1)
 
         option.None ->
           advance(lexer, rest, 1)
-          |> lex_multi_line_comment(start, slice + 1, depth + 1)
+          |> lex_long_comment(start, slice + 1, depth + 1)
       }
 
     "\n" <> rest ->
       advance_line(lexer, rest, 1)
-      |> lex_multi_line_comment(start, slice + 1, depth)
+      |> lex_long_comment(start, slice + 1, depth)
 
     "" -> {
       let content = slice_bytes(lexer.original, start + 1, slice)
-      #(lexer, token(lexer, UnterminatedCommentMultiple(content)))
+      #(lexer, token(lexer, UnterminatedLongComment(content)))
     }
 
     _ ->
       advance(lexer, drop_byte(lexer.source), 1)
-      |> lex_multi_line_comment(start, slice + 1, depth)
+      |> lex_long_comment(start, slice + 1, depth)
   }
 }
 
@@ -650,7 +642,7 @@ fn lex_long_string(lexer: Lexer, start: Int, slice: Int, depth: Int) {
 
     "\n" <> rest ->
       advance_line(lexer, rest, 1)
-      |> lex_multi_line_comment(start, slice + 1, depth)
+      |> lex_long_comment(start, slice + 1, depth)
 
     "" -> {
       let content = slice_bytes(lexer.original, start + 1, slice)
@@ -1025,8 +1017,8 @@ fn token_to_string(token: Token) -> String {
     LongString(str) -> "[[" <> str <> "]]"
     Int(str) -> str
     Float(str) -> str
-    CommentSingle(str) -> "--" <> str
-    CommentMultiple(str) -> "--[[" <> str <> "]]"
+    Comment(str) -> "--" <> str
+    LongComment(str) -> "--[[" <> str <> "]]"
 
     // keywords
     And -> "and"
@@ -1105,7 +1097,7 @@ fn token_to_string(token: Token) -> String {
     // Invalid code
     UnterminatedString(str) -> "\"" <> str
     UnterminatedLongString(str) -> "[[" <> str
-    UnterminatedCommentMultiple(str) -> "--[[" <> str
+    UnterminatedLongComment(str) -> "--[[" <> str
     UnexpectedGrapheme(str) -> str
   }
 }
