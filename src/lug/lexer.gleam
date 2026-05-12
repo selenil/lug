@@ -350,8 +350,9 @@ fn lex_loop(
 
     // hexadecimal numbers
     "0x" <> rest | "0X" <> rest -> {
+      let pos = Position(lexer.offset, lexer.column, lexer.line)
       let #(lexer, token) =
-        advance(lexer, rest, 2) |> lex_hexadecimal_int(lexer.offset, 2)
+        advance(lexer, rest, 2) |> lex_hexadecimal_int(pos, 2)
 
       lex_loop(lexer, [token, ..acc])
     }
@@ -367,9 +368,9 @@ fn lex_loop(
     | "7" <> rest
     | "8" <> rest
     | "9" <> rest -> {
-      let start = lexer.offset
+      let pos = Position(lexer.offset, lexer.column, lexer.line)
       let lexer = advance(lexer, rest, 1)
-      let #(lexer, acc) = case lex_int(lexer, start, 1) {
+      let #(lexer, acc) = case lex_int(lexer, pos, 1) {
         #(lexer, int, option.Some(minus)) -> #(lexer, [minus, int, ..acc])
         #(lexer, int, _) -> #(lexer, [int, ..acc])
       }
@@ -387,9 +388,9 @@ fn lex_loop(
     | "-7" <> rest
     | "-8" <> rest
     | "-9" <> rest -> {
-      let start = lexer.offset
-      let lexer = advance(lexer, rest, 1)
-      let #(lexer, acc) = case lex_int(lexer, start, 1) {
+      let pos = Position(lexer.offset, lexer.column, lexer.line)
+      let lexer = advance(lexer, rest, 2)
+      let #(lexer, acc) = case lex_int(lexer, pos, 2) {
         #(lexer, int, option.Some(minus)) -> #(lexer, [minus, int, ..acc])
         #(lexer, int, _) -> #(lexer, [int, ..acc])
       }
@@ -802,7 +803,7 @@ fn lex_uppercase_word(
 
 fn lex_int(
   lexer: Lexer,
-  start: Int,
+  start: Position,
   slice: Int,
 ) -> #(Lexer, #(Token, Position), option.Option(#(Token, Position))) {
   case lexer.source {
@@ -852,16 +853,14 @@ fn lex_int(
   }
 }
 
-fn consume_int(lexer: Lexer, start: Int, slice: Int) {
-  let content = slice_bytes(lexer.original, start, slice)
-  let pos = Position(start, lexer.column, lexer.line)
-
-  #(lexer, #(Int(content), pos))
+fn consume_int(lexer: Lexer, position: Position, slice: Int) {
+  let content = slice_bytes(lexer.original, position.offset, slice)
+  #(lexer, #(Int(content), position))
 }
 
 fn lex_float(
   lexer: Lexer,
-  start: Int,
+  start: Position,
   slice: Int,
 ) -> #(Lexer, #(Token, Position)) {
   case lexer.source {
@@ -892,17 +891,16 @@ fn lex_float(
 
 fn consume_float(
   lexer: Lexer,
-  start: Int,
+  position: Position,
   slice: Int,
 ) -> #(Lexer, #(Token, Position)) {
-  let content = slice_bytes(lexer.original, start, slice)
-  let pos = Position(start, lexer.column, lexer.line)
-  #(lexer, #(Float(content), pos))
+  let content = slice_bytes(lexer.original, position.offset, slice)
+  #(lexer, #(Float(content), position))
 }
 
 fn lex_hexadecimal_int(
   lexer: Lexer,
-  start: Int,
+  start: Position,
   slice: Int,
 ) -> #(Lexer, #(Token, Position)) {
   case lexer.source {
@@ -945,7 +943,7 @@ fn lex_hexadecimal_int(
 
 fn lex_hexadecimal_float(
   lexer: Lexer,
-  start: Int,
+  start: Position,
   slice: Int,
 ) -> #(Lexer, #(Token, Position)) {
   case lexer.source {
