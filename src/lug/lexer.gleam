@@ -223,23 +223,26 @@ fn lex_loop(
 
     // Single line strings
     "\"" <> rest -> {
+      let pos = Position(lexer.offset, lexer.column, lexer.line)
       let #(lexer, token) =
-        advance(lexer, rest, 1) |> lex_string(lexer.offset, 0, Double, String)
+        advance(lexer, rest, 1) |> lex_string(pos, 0, Double, String)
 
       lex_loop(lexer, [token, ..acc])
     }
 
     "'" <> rest -> {
+      let pos = Position(lexer.offset, lexer.column, lexer.line)
       let #(lexer, token) =
-        advance(lexer, rest, 1) |> lex_string(lexer.offset, 0, Single, String)
+        advance(lexer, rest, 1) |> lex_string(pos, 0, Single, String)
 
       lex_loop(lexer, [token, ..acc])
     }
 
     // Long strings
     "[[" <> rest -> {
+      let pos = Position(lexer.offset, lexer.column, lexer.line)
       let #(lexer, token) =
-        advance(lexer, rest, 2) |> lex_long_string(lexer.offset, 0, 0)
+        advance(lexer, rest, 2) |> lex_long_string(pos, 0, 0)
 
       lex_loop(lexer, [token, ..acc])
     }
@@ -560,7 +563,7 @@ type StringClosingQuote {
 
 fn lex_string(
   lexer: Lexer,
-  start: Int,
+  start: Position,
   slice: Int,
   closing_quote: StringClosingQuote,
   emit: fn(String) -> Token,
@@ -589,7 +592,7 @@ fn lex_string(
     }
 
     "" -> {
-      let content = slice_bytes(lexer.original, start + 1, slice)
+      let content = slice_bytes(lexer.original, start.offset + 1, slice)
       #(lexer, token(lexer, UnterminatedString(content)))
     }
 
@@ -602,17 +605,15 @@ fn lex_string(
 fn consume_string(
   lexer: Lexer,
   rest: String,
-  offset: Int,
+  position: Position,
   slice: Int,
   emit: fn(String) -> Token,
 ) {
-  let content = slice_bytes(lexer.original, offset + 1, slice)
-  let pos = Position(offset, lexer.column, lexer.line)
-
-  #(advance(lexer, rest, 1), #(emit(content), pos))
+  let content = slice_bytes(lexer.original, position.offset + 1, slice)
+  #(advance(lexer, rest, 1), #(emit(content), position))
 }
 
-fn lex_long_string(lexer: Lexer, start: Int, slice: Int, depth: Int) {
+fn lex_long_string(lexer: Lexer, start: Position, slice: Int, depth: Int) {
   case lexer.source {
     "[" <> rest ->
       case find_opening_brace(rest, depth, 0) {
@@ -628,8 +629,8 @@ fn lex_long_string(lexer: Lexer, start: Int, slice: Int, depth: Int) {
     "]" <> rest ->
       case find_closing_brace(rest, depth, 0) {
         option.Some(rest) if depth == 0 -> {
-          let content = slice_bytes(lexer.original, start + 1, slice)
-          #(advance(lexer, rest, depth + 1), token(lexer, LongString(content)))
+          let content = slice_bytes(lexer.original, start.offset + 1, slice)
+          #(advance(lexer, rest, depth + 1), #(LongString(content), start))
         }
 
         option.Some(rest) ->
@@ -643,10 +644,10 @@ fn lex_long_string(lexer: Lexer, start: Int, slice: Int, depth: Int) {
 
     "\n" <> rest ->
       advance_line(lexer, rest, 1)
-      |> lex_long_comment(start, slice + 1, depth)
+      |> lex_long_string(start, slice + 1, depth)
 
     "" -> {
-      let content = slice_bytes(lexer.original, start + 1, slice)
+      let content = slice_bytes(lexer.original, start.offset + 1, slice)
       #(lexer, token(lexer, UnterminatedLongString(content)))
     }
 
