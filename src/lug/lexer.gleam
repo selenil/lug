@@ -896,7 +896,14 @@ fn consume_float(
   slice: Int,
 ) -> #(Lexer, #(Token, Position)) {
   let content = slice_bytes(lexer.original, position.offset, slice)
-  #(lexer, #(Float(content), position))
+
+  // handle float with trailing dot
+  let number = case string.ends_with(content, ".") {
+    True -> content <> "0"
+    False -> content
+  }
+
+  #(lexer, #(Float(number), position))
 }
 
 fn lex_hexadecimal_int(
