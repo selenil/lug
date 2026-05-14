@@ -821,6 +821,28 @@ fn lex_int(
       advance(lexer, rest, 1)
       |> lex_int(start, slice + 1)
 
+    // exponential notation
+    "e+" <> rest | "E+" <> rest -> {
+      let #(lexer, float) =
+        advance(lexer, rest, 2) |> lex_float(start, slice + 2)
+
+      #(lexer, float, option.None)
+    }
+
+    "e-" <> rest | "E-" <> rest -> {
+      let #(lexer, float) =
+        advance(lexer, rest, 2) |> lex_float(start, slice + 2)
+
+      #(lexer, float, option.None)
+    }
+
+    "e" <> rest | "E" <> rest -> {
+      let #(lexer, float) =
+        advance(lexer, rest, 1) |> lex_float(start, slice + 1)
+
+      #(lexer, float, option.None)
+    }
+
     // prevent numbers like "0..4" to be mistakenly lexed as a float number
     ".." <> _rest -> {
       let #(lexer, int) = consume_int(lexer, start, slice)
@@ -879,6 +901,10 @@ fn lex_float(
       |> lex_float(start, slice + 1)
 
     // float number in exponential notation
+    "e+" <> rest | "E+" <> rest ->
+      advance(lexer, rest, 2)
+      |> lex_float(start, slice + 2)
+
     "e-" <> rest | "E-" <> rest ->
       advance(lexer, rest, 2)
       |> lex_float(start, slice + 2)
@@ -933,9 +959,7 @@ fn lex_hexadecimal_int(
     | "e" <> rest
     | "E" <> rest
     | "f" <> rest
-    | "F" <> rest
-    | "p" <> rest
-    | "P" <> rest ->
+    | "F" <> rest ->
       advance(lexer, rest, 1) |> lex_hexadecimal_int(start, slice + 1)
 
     // prevent numbers like "0xA..4" to be mistakenly lexed as an hexadecimal float number
@@ -943,6 +967,16 @@ fn lex_hexadecimal_int(
 
     // hexadecimal float number
     "." <> rest ->
+      advance(lexer, rest, 1) |> lex_hexadecimal_float(start, slice + 1)
+
+    // radix
+    "p+" <> rest | "P+" <> rest ->
+      advance(lexer, rest, 2) |> lex_hexadecimal_float(start, slice + 2)
+
+    "p-" <> rest | "P-" <> rest ->
+      advance(lexer, rest, 2) |> lex_hexadecimal_float(start, slice + 2)
+
+    "p" <> rest | "P" <> rest ->
       advance(lexer, rest, 1) |> lex_hexadecimal_float(start, slice + 1)
 
     _ -> consume_int(lexer, start, slice)
@@ -976,9 +1010,17 @@ fn lex_hexadecimal_float(
     | "e" <> rest
     | "E" <> rest
     | "f" <> rest
-    | "F" <> rest
-    | "p" <> rest
-    | "P" <> rest ->
+    | "F" <> rest ->
+      advance(lexer, rest, 1) |> lex_hexadecimal_float(start, slice + 1)
+
+    // radix
+    "p+" <> rest | "P+" <> rest ->
+      advance(lexer, rest, 2) |> lex_hexadecimal_float(start, slice + 2)
+
+    "p-" <> rest | "P-" <> rest ->
+      advance(lexer, rest, 2) |> lex_hexadecimal_float(start, slice + 2)
+
+    "p" <> rest | "P" <> rest ->
       advance(lexer, rest, 1) |> lex_hexadecimal_float(start, slice + 1)
 
     _ -> consume_float(lexer, start, slice)
