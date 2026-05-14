@@ -409,7 +409,7 @@ fn lex_loop(
     "*" <> rest ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, Star), ..acc])
     "//" <> rest ->
-      lex_loop(advance(lexer, rest, 1), [token(lexer, SlashSlash), ..acc])
+      lex_loop(advance(lexer, rest, 2), [token(lexer, SlashSlash), ..acc])
     "/" <> rest ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, Slash), ..acc])
     "%" <> rest ->
