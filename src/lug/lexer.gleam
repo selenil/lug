@@ -188,32 +188,26 @@ fn lex_loop(
     }
 
     // comments
-    "--[" <> rest ->
-      // see first if it is a single line comment starting with [
-      case rest {
-        "[" <> rest -> {
-          let lexer = advance(lexer, rest, 4)
-          let #(lexer, token) = lex_long_comment(lexer, lexer.offset, 0, 0)
+    "--[" <> rest -> {
+      let pos = Position(lexer.offset, lexer.column, lexer.line)
 
-          case lexer.keep_comments {
-            True -> lex_loop(lexer, [token, ..acc])
-            False -> lex_loop(lexer, acc)
-          }
-        }
+      // see first if it is a single-line comment starting with a [
+      let #(lexer, token) = case find_opening_brace(rest, 0) {
+        option.Some(#(rest, depth)) ->
+          advance(lexer, rest, 4 + depth) |> lex_long_comment(pos, 0, depth)
 
-        _ -> {
-          let #(lexer, token) =
-            advance(lexer, rest, 2) |> lex_comment(lexer.offset)
-
-          case lexer.keep_comments {
-            True -> lex_loop(lexer, [token, ..acc])
-            False -> lex_loop(lexer, acc)
-          }
-        }
+        option.None -> advance(lexer, "[" <> rest, 2) |> lex_comment(pos)
       }
 
+      case lexer.keep_comments {
+        True -> lex_loop(lexer, [token, ..acc])
+        False -> lex_loop(lexer, acc)
+      }
+    }
+
     "--" <> rest -> {
-      let #(lexer, token) = advance(lexer, rest, 2) |> lex_comment(lexer.offset)
+      let pos = Position(lexer.offset, lexer.column, lexer.line)
+      let #(lexer, token) = advance(lexer, rest, 2) |> lex_comment(pos)
 
       case lexer.keep_comments {
         True -> lex_loop(lexer, [token, ..acc])
@@ -503,56 +497,51 @@ fn lex_whitespace(lexer: Lexer, start: Int, slice: Int) {
   }
 }
 
-fn lex_comment(lexer: Lexer, start: Int) -> #(Lexer, #(Token, Position)) {
+fn lex_comment(
+  lexer: Lexer,
+  position: Position,
+) -> #(Lexer, #(Token, Position)) {
   let #(comment, rest) = split_until_new_line(lexer, lexer.source)
-  let pos = Position(start, lexer.column, lexer.line)
 
   let lexer = advance(lexer, rest, string.length(comment))
-  #(lexer, #(Comment(comment), pos))
+  #(lexer, #(Comment(comment), position))
 }
 
-fn lex_long_comment(lexer: Lexer, start: Int, slice: Int, depth: Int) {
+fn lex_long_comment(lexer: Lexer, position: Position, slice: Int, depth: Int) {
   case lexer.source {
-    // check if we are entering in a nested multine comment
-    "[" <> rest ->
-      case find_opening_brace(rest, depth, 0) {
-        option.Some(rest) ->
-          advance(lexer, rest, depth + 2)
-          |> lex_long_comment(start, slice + depth + 2, depth + 1)
-
-        option.None ->
-          advance(lexer, rest, 1)
-          |> lex_long_comment(start, slice + 1, depth)
-      }
-
     "]" <> rest ->
-      case find_closing_brace(rest, depth, 0) {
-        option.Some(rest) if depth == 0 -> {
-          let content = slice_bytes(lexer.original, start + 1, slice)
-          #(advance(lexer, rest, depth + 1), token(lexer, LongComment(content)))
+      case find_closing_brace(rest, 0) {
+        option.Some(#(rest, found)) if found == depth -> {
+          let content =
+            slice_bytes(lexer.original, position.offset + depth + 4, slice)
+          #(advance(lexer, rest, depth + 3), #(LongComment(content), position))
         }
 
-        option.Some(rest) ->
-          advance(lexer, rest, depth + 1)
-          |> lex_long_comment(start, slice + depth + 1, depth - 1)
+        option.Some(#(rest, found)) ->
+          advance(lexer, rest, found + 2)
+          |> lex_long_comment(position, slice + found + 2, depth)
 
         option.None ->
           advance(lexer, rest, 1)
-          |> lex_long_comment(start, slice + 1, depth + 1)
+          |> lex_long_comment(position, slice + 1, depth)
       }
 
     "\n" <> rest ->
       advance_line(lexer, rest, 1)
-      |> lex_long_comment(start, slice + 1, depth)
+      |> lex_long_comment(position, slice + 1, depth)
 
     "" -> {
-      let content = slice_bytes(lexer.original, start + 1, slice)
-      #(lexer, token(lexer, UnterminatedLongComment(content)))
+      let content =
+        slice_bytes(lexer.original, position.offset + depth + 4, slice)
+      #(
+        advance(lexer, lexer.source, 1),
+        #(UnterminatedLongComment(content), position),
+      )
     }
 
     _ ->
       advance(lexer, drop_byte(lexer.source), 1)
-      |> lex_long_comment(start, slice + 1, depth)
+      |> lex_long_comment(position, slice + 1, depth)
   }
 }
 
@@ -657,18 +646,24 @@ fn lex_long_string(lexer: Lexer, start: Position, slice: Int, depth: Int) {
   }
 }
 
-fn find_opening_brace(content: String, depth: Int, current: Int) {
+fn find_opening_brace(
+  content: String,
+  current: Int,
+) -> option.Option(#(String, Int)) {
   case content {
-    "[" <> rest if depth + 1 == current -> option.Some(rest)
-    "=" <> rest -> find_opening_brace(rest, depth, current + 1)
+    "[" <> rest -> option.Some(#(rest, current))
+    "=" <> rest -> find_opening_brace(rest, current + 1)
     _ -> option.None
   }
 }
 
-fn find_closing_brace(content: String, depth: Int, current: Int) {
+fn find_closing_brace(
+  content: String,
+  current: Int,
+) -> option.Option(#(String, Int)) {
   case content {
-    "]" <> rest if depth == current -> option.Some(rest)
-    "=" <> rest -> find_closing_brace(rest, depth, current + 1)
+    "]" <> rest -> option.Some(#(rest, current))
+    "=" <> rest -> find_closing_brace(rest, current + 1)
     _ -> option.None
   }
 }
