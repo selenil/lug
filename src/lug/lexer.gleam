@@ -522,7 +522,7 @@ fn lex_long_comment(lexer: Lexer, position: Position, slice: Int, depth: Int) {
         option.Some(#(rest, found)) if found == depth -> {
           let content =
             slice_bytes(lexer.original, position.offset + depth + 4, slice)
-          #(advance(lexer, rest, depth + 3), #(LongComment(content), position))
+          #(advance(lexer, rest, depth + 2), #(LongComment(content), position))
         }
 
         option.Some(#(rest, found)) ->
