@@ -232,20 +232,27 @@ fn lex_loop(
       lex_loop(lexer, [token, ..acc])
     }
 
-    // Long strings
-    "[[" <> rest -> {
-      let pos = Position(lexer.offset, lexer.column, lexer.line)
-      let #(lexer, token) =
-        advance(lexer, rest, 2) |> lex_long_string(pos, 0, 0)
-
-      lex_loop(lexer, [token, ..acc])
-    }
-
     // Need to appear first in the pattern matching
     "..." <> rest ->
       advance(lexer, rest, 3) |> lex_loop([token(lexer, DotDotDot), ..acc])
     "~=" <> rest ->
       advance(lexer, rest, 2) |> lex_loop([token(lexer, NotEqual), ..acc])
+
+    "[" <> rest ->
+      case find_opening_brace(rest, 0) {
+        // long string
+        option.Some(#(rest, depth)) -> {
+          let pos = Position(lexer.offset, lexer.column, lexer.line)
+          let #(lexer, token) =
+            advance(lexer, rest, 2 + depth) |> lex_long_string(pos, 0, depth)
+
+          lex_loop(lexer, [token, ..acc])
+        }
+
+        // left square
+        option.None ->
+          lex_loop(advance(lexer, rest, 1), [token(lexer, LeftSquare), ..acc])
+      }
 
     // keywords and names 
     "a" <> rest
@@ -450,8 +457,6 @@ fn lex_loop(
       lex_loop(advance(lexer, rest, 1), [token(lexer, LeftBrace), ..acc])
     "}" <> rest ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, RightBrace), ..acc])
-    "[" <> rest ->
-      lex_loop(advance(lexer, rest, 1), [token(lexer, LeftSquare), ..acc])
     "]" <> rest ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, RightSquare), ..acc])
 
@@ -552,28 +557,28 @@ type StringClosingQuote {
 
 fn lex_string(
   lexer: Lexer,
-  start: Position,
+  position: Position,
   slice: Int,
   closing_quote: StringClosingQuote,
   emit: fn(String) -> Token,
 ) -> #(Lexer, #(Token, Position)) {
   case lexer.source {
     "'" <> rest if closing_quote == Single ->
-      consume_string(lexer, rest, start, slice, emit)
+      consume_string(lexer, rest, position, slice, emit)
     "\"" <> rest if closing_quote == Double ->
-      consume_string(lexer, rest, start, slice, emit)
+      consume_string(lexer, rest, position, slice, emit)
 
     "\n" <> rest ->
       advance(lexer, rest, 2)
-      |> lex_string(start, slice + 2, closing_quote, UnterminatedString)
+      |> lex_string(position, slice + 2, closing_quote, UnterminatedString)
 
     "\\z" <> rest -> {
       let #(lexer, content) =
-        lex_whitespace(advance(lexer, rest, 1), lexer.offset, 2)
+        lex_whitespace(advance(lexer, rest, 1), position, 2)
 
       lex_string(
         lexer,
-        start,
+        position,
         slice + string.length(content),
         closing_quote,
         emit,
@@ -581,13 +586,13 @@ fn lex_string(
     }
 
     "" -> {
-      let content = slice_bytes(lexer.original, start.offset + 1, slice)
-      #(lexer, token(lexer, UnterminatedString(content)))
+      let content = slice_bytes(lexer.original, position.offset + 1, slice)
+      #(lexer, #(UnterminatedString(content), position))
     }
 
     _ ->
       advance(lexer, drop_byte(lexer.source), 1)
-      |> lex_string(start, slice + 1, closing_quote, emit)
+      |> lex_string(position, slice + 1, closing_quote, emit)
   }
 }
 
@@ -602,47 +607,42 @@ fn consume_string(
   #(advance(lexer, rest, 1), #(emit(content), position))
 }
 
-fn lex_long_string(lexer: Lexer, start: Position, slice: Int, depth: Int) {
+fn lex_long_string(lexer: Lexer, position: Position, slice: Int, depth: Int) {
   case lexer.source {
-    "[" <> rest ->
-      case find_opening_brace(rest, depth, 0) {
-        option.Some(rest) ->
-          advance(lexer, rest, depth + 2)
-          |> lex_long_string(start, slice + depth + 2, depth + 1)
-
-        option.None ->
-          advance(lexer, rest, 1)
-          |> lex_long_string(start, slice + 1, depth)
-      }
-
     "]" <> rest ->
-      case find_closing_brace(rest, depth, 0) {
-        option.Some(rest) if depth == 0 -> {
-          let content = slice_bytes(lexer.original, start.offset + 1, slice)
-          #(advance(lexer, rest, depth + 1), #(LongString(content), start))
+      case find_closing_brace(rest, 0) {
+        option.Some(#(rest, found)) if found == depth -> {
+          let content =
+            slice_bytes(lexer.original, position.offset + depth + 2, slice)
+
+          #(advance(lexer, rest, depth + 2), #(LongString(content), position))
         }
 
-        option.Some(rest) ->
-          advance(lexer, rest, depth + 1)
-          |> lex_long_string(start, slice + depth + 1, depth - 1)
+        option.Some(#(rest, found)) ->
+          advance(lexer, rest, found + 2)
+          |> lex_long_string(position, slice + found + 2, depth)
 
         option.None ->
           advance(lexer, rest, 1)
-          |> lex_long_string(start, slice + 1, depth + 1)
+          |> lex_long_string(position, slice + 1, depth)
       }
 
     "\n" <> rest ->
       advance_line(lexer, rest, 1)
-      |> lex_long_string(start, slice + 1, depth)
+      |> lex_long_string(position, slice + 1, depth)
 
     "" -> {
-      let content = slice_bytes(lexer.original, start.offset + 1, slice)
-      #(lexer, token(lexer, UnterminatedLongString(content)))
+      let content =
+        slice_bytes(lexer.original, position.offset + depth + 2, slice)
+      #(
+        advance(lexer, lexer.source, 1),
+        #(UnterminatedLongString(content), position),
+      )
     }
 
     _ ->
       advance(lexer, drop_byte(lexer.source), 1)
-      |> lex_long_string(start, slice + 1, depth)
+      |> lex_long_string(position, slice + 1, depth)
   }
 }
 
