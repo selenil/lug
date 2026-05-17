@@ -99,6 +99,7 @@ pub type Token {
   Comma
   Dot
   DotDotDot
+  Discard
 
   // whitespace
   Space(String)
@@ -472,6 +473,8 @@ fn lex_loop(
     "," <> rest ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, Comma), ..acc])
     "." <> rest -> lex_loop(advance(lexer, rest, 1), [token(lexer, Dot), ..acc])
+    "_" <> rest ->
+      lex_loop(advance(lexer, rest, 1), [token(lexer, Discard), ..acc])
 
     // check if we are at the end of the file
     _ ->
@@ -787,7 +790,8 @@ fn lex_uppercase_word(
     | "6" <> rest
     | "7" <> rest
     | "8" <> rest
-    | "9" <> rest ->
+    | "9" <> rest
+    | "_" <> rest ->
       advance(lexer, rest, 1)
       |> lex_uppercase_word(start, slice + 1)
     _ -> {
@@ -1131,6 +1135,7 @@ fn token_to_string(token: Token) -> String {
     Comma -> ","
     Dot -> "."
     DotDotDot -> "..."
+    Discard -> "_"
 
     // whitespace
     Space(str) -> str
