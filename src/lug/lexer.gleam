@@ -160,30 +160,23 @@ fn lex_loop(
   case lexer.source {
     // Whitespace
     " " <> rest | "\t" <> rest -> {
-      let start = lexer.offset
-      let #(lexer, content) =
-        advance(lexer, rest, 1) |> lex_whitespace(start, 1)
+      let pos = Position(lexer.offset, lexer.column, lexer.line)
+      let #(lexer, content) = advance(lexer, rest, 1) |> lex_whitespace(pos, 1)
 
       case lexer.keep_whitespaces {
-        True -> {
-          let pos = Position(start, lexer.column, lexer.line)
-          lex_loop(lexer, [#(Space(content), pos), ..acc])
-        }
+        True -> lex_loop(lexer, [#(Space(content), pos), ..acc])
         False -> lex_loop(lexer, acc)
       }
     }
 
     // Newline
     "\n" <> rest | "\r" <> rest -> {
-      let start = lexer.offset
+      let pos = Position(lexer.offset, lexer.column, lexer.line)
       let #(lexer, content) =
-        advance_line(lexer, rest, 1) |> lex_whitespace(start, 1)
+        advance_line(lexer, rest, 1) |> lex_whitespace(pos, 1)
 
       case lexer.keep_whitespaces {
-        True -> {
-          let pos = Position(start, lexer.column, lexer.line)
-          lex_loop(lexer, [#(Space(content), pos), ..acc])
-        }
+        True -> lex_loop(lexer, [#(Space(content), pos), ..acc])
         False -> lex_loop(lexer, acc)
       }
     }
@@ -492,14 +485,14 @@ fn lex_loop(
   }
 }
 
-fn lex_whitespace(lexer: Lexer, start: Int, slice: Int) {
+fn lex_whitespace(lexer: Lexer, position: Position, slice: Int) {
   case lexer.source {
     "\n" <> rest | "\r" <> rest ->
-      lex_whitespace(advance_line(lexer, rest, 1), start, slice + 1)
+      lex_whitespace(advance_line(lexer, rest, 1), position, slice + 1)
     " " <> rest | "\t" <> rest ->
-      lex_whitespace(advance(lexer, rest, 1), start, slice + 1)
+      lex_whitespace(advance(lexer, rest, 1), position, slice + 1)
     _ -> {
-      let content = slice_bytes(lexer.original, start, slice)
+      let content = slice_bytes(lexer.original, position.offset, slice)
       #(lexer, content)
     }
   }
