@@ -56,6 +56,17 @@ pub fn lex_indentifier_uppercase_test() {
       #(lexer.Identifier("VariableName1"), lexer.Position(0, 1, 1)),
       #(lexer.EndOfFile, lexer.Position(13, 14, 1)),
     ]
+
+  let tokens =
+    lexer.new("variableName1")
+    |> lexer.discard_whitespaces
+    |> lexer.lex
+
+  assert tokens
+    == [
+      #(lexer.Identifier("variableName1"), lexer.Position(0, 1, 1)),
+      #(lexer.EndOfFile, lexer.Position(13, 14, 1)),
+    ]
 }
 
 pub fn lex_identifier_starting_with_an_underscore_test() {
@@ -66,8 +77,7 @@ pub fn lex_identifier_starting_with_an_underscore_test() {
 
   assert tokens
     == [
-      #(lexer.Discard, lexer.Position(0, 1, 1)),
-      #(lexer.Identifier("variable_name"), lexer.Position(1, 2, 1)),
+      #(lexer.Identifier("_variable_name"), lexer.Position(0, 1, 1)),
       #(lexer.EndOfFile, lexer.Position(14, 15, 1)),
     ]
 
@@ -78,8 +88,7 @@ pub fn lex_identifier_starting_with_an_underscore_test() {
 
   assert tokens
     == [
-      #(lexer.Discard, lexer.Position(0, 1, 1)),
-      #(lexer.Identifier("VariableName"), lexer.Position(1, 2, 1)),
+      #(lexer.Identifier("_VariableName"), lexer.Position(0, 1, 1)),
       #(lexer.EndOfFile, lexer.Position(13, 14, 1)),
     ]
 }
@@ -863,7 +872,7 @@ pub fn lex_grouping_test() {
 
 pub fn lex_punctuation_test() {
   let tokens =
-    lexer.new("= : :: ; , . ... _")
+    lexer.new("= : :: ; , . ...")
     |> lexer.discard_whitespaces
     |> lexer.lex
 
@@ -876,8 +885,7 @@ pub fn lex_punctuation_test() {
       #(lexer.Comma, lexer.Position(9, 10, 1)),
       #(lexer.Dot, lexer.Position(11, 12, 1)),
       #(lexer.DotDotDot, lexer.Position(13, 14, 1)),
-      #(lexer.Discard, lexer.Position(17, 18, 1)),
-      #(lexer.EndOfFile, lexer.Position(18, 19, 1)),
+      #(lexer.EndOfFile, lexer.Position(16, 17, 1)),
     ]
 }
 
