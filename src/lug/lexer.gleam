@@ -1149,14 +1149,7 @@ fn token(lexer: Lexer, token: Token) -> #(Token, Position) {
   #(token, Position(lexer.offset, lexer.column, lexer.line))
 }
 
-pub fn to_string(tokens: List(#(Token, Position))) -> String {
-  list.fold(tokens, "", fn(acc, pair) {
-    let #(token, _) = pair
-    token_to_string(token) <> acc
-  })
-}
-
-fn token_to_string(token: Token) -> String {
+pub fn token_to_string(token: Token) -> String {
   case token {
     // literals
     Identifier(str) -> str
