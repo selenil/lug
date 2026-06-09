@@ -44,13 +44,13 @@ pub type Statement {
   ForIn(location: Span, names: List(String), in: List(Expression), do: Block)
   FunctionDeclaration(
     location: Span,
-    name: String,
+    name: FunctionName,
     parameters: List(Parameter),
     body: Block,
   )
   LocalFunction(
     location: Span,
-    name: String,
+    name: FunctionName,
     paramaters: List(Parameter),
     body: Block,
   )
@@ -60,6 +60,14 @@ pub type Statement {
 
 pub type Elseif {
   Elseif(location: Span, condition: Expression, block: Block)
+}
+
+pub type FunctionName {
+  FunctionName(
+    root: String,
+    subfields: List(String),
+    method: option.Option(String),
+  )
 }
 
 pub type Parameter {
@@ -436,9 +444,12 @@ fn local_function(
 
 fn do_function(
   tokens: Tokens,
-) -> Result(#(String, List(Parameter), Block, lexer.Position, Tokens), Error) {
-  use #(idnt, _, tokens) <- result.try(identifier(tokens))
-  use #(name, tokens) <- result.try(function_name(idnt, tokens))
+) -> Result(
+  #(FunctionName, List(Parameter), Block, lexer.Position, Tokens),
+  Error,
+) {
+  use #(root, _, tokens) <- result.try(identifier(tokens))
+  use #(name, tokens) <- result.try(function_name(root, tokens, []))
   use _, tokens <- expect(lexer.LeftParen, tokens)
   use args, _, tokens <- comma_delimited_until(
     lexer.RightParen,
@@ -452,23 +463,26 @@ fn do_function(
 }
 
 fn function_name(
-  name: String,
+  root: String,
   tokens: Tokens,
-) -> Result(#(String, Tokens), Error) {
+  subfields: List(String),
+) -> Result(#(FunctionName, Tokens), Error) {
   case tokens {
     [#(lexer.Dot, _), ..tokens] -> {
       use #(subname, _, tokens) <- result.try(identifier(tokens))
-
-      function_name(name <> "." <> subname, tokens)
+      function_name(root, tokens, [subname, ..subfields])
     }
 
     [#(lexer.Colon, _), ..tokens] -> {
-      use #(subname, _, tokens) <- result.try(identifier(tokens))
+      use #(method, _, tokens) <- result.try(identifier(tokens))
 
-      Ok(#(name <> ":" <> subname, tokens))
+      Ok(#(
+        FunctionName(root, list.reverse(subfields), option.Some(method)),
+        tokens,
+      ))
     }
 
-    _ -> Ok(#(name, tokens))
+    _ -> Ok(#(FunctionName(root, list.reverse(subfields), option.None), tokens))
   }
 }
 
