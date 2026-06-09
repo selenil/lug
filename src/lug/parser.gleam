@@ -706,7 +706,10 @@ fn bind_expression(
     // method call is desugared when parsing
     [#(lexer.Colon, start), ..tokens] -> {
       use #(method, _, tokens) <- result.try(identifier(tokens))
-      let method = Variable(string_span(start, method), method)
+      let name_span = string_span(start, method)
+
+      let span = Span(prefix.location.start, name_span.end)
+      let method = Index(span, prefix, Variable(name_span, method))
 
       case tokens {
         [#(lexer.LeftParen, _), ..tokens] -> {
