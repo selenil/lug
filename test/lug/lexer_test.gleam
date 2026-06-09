@@ -182,7 +182,7 @@ pub fn lex_string_with_newlines_using_z_test() {
         lexer.String("a string \\z \n\n whith newlines"),
         lexer.Position(0, 1, 1),
       ),
-      #(lexer.EndOfFile, lexer.Position(30, 17, 3)),
+      #(lexer.EndOfFile, lexer.Position(31, 17, 3)),
     ]
 }
 

@@ -578,7 +578,7 @@ fn lex_string(
 
     "\\z" <> rest -> {
       let #(lexer, content) =
-        lex_whitespace(advance(lexer, rest, 1), position, 2)
+        lex_whitespace(advance(lexer, rest, 2), position, 2)
 
       lex_string(
         lexer,
@@ -588,6 +588,20 @@ fn lex_string(
         emit,
       )
     }
+
+    "\\" <> rest ->
+      case string.pop_grapheme(rest) {
+        Ok(#(grapheme, rest)) -> {
+          let to_move = string.length(grapheme) + 1
+          let slice = slice + to_move
+
+          advance(lexer, rest, to_move)
+          |> lex_string(position, slice, closing_quote, emit)
+        }
+        Error(_) ->
+          advance(lexer, rest, 1)
+          |> lex_string(position, slice + 1, closing_quote, emit)
+      }
 
     "" -> {
       let content = slice_bytes(lexer.original, position.offset + 1, slice)
