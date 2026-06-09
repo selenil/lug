@@ -306,7 +306,15 @@ fn lex_loop(
         identifier -> Identifier(identifier)
       }
 
-      lex_loop(lexer, [#(tok, pos), ..acc])
+      // check if there's a minus symbol next to avoid lexing it
+      // as part of a negative number
+      case lexer.source {
+        "-" <> rest -> {
+          let minus = token(lexer, Minus)
+          lex_loop(advance(lexer, rest, 1), [minus, #(tok, pos), ..acc])
+        }
+        _ -> lex_loop(lexer, [#(tok, pos), ..acc])
+      }
     }
 
     // Uppercase Name
@@ -342,7 +350,19 @@ fn lex_loop(
         advance(lexer, rest, 1)
         |> lex_uppercase_word(pos.offset, 1)
 
-      lex_loop(lexer, [#(Identifier(identifier), pos), ..acc])
+      // check if there's a minus symbol next to avoid lexing it
+      // as part of a negative number
+      case lexer.source {
+        "-" <> rest -> {
+          let minus = token(lexer, Minus)
+          lex_loop(advance(lexer, rest, 1), [
+            minus,
+            #(Identifier(identifier), pos),
+            ..acc
+          ])
+        }
+        _ -> lex_loop(lexer, [#(Identifier(identifier), pos), ..acc])
+      }
     }
 
     // discards names
