@@ -99,7 +99,6 @@ pub type Token {
   Comma
   Dot
   DotDotDot
-  Discard
 
   // whitespace
   Space(String)
@@ -346,6 +345,17 @@ fn lex_loop(
       lex_loop(lexer, [#(Identifier(identifier), pos), ..acc])
     }
 
+    // discards names
+    "_" <> rest -> {
+      let pos = Position(lexer.offset, lexer.column, lexer.line)
+
+      let #(lexer, identifier) =
+        advance(lexer, rest, 1)
+        |> lex_discard_name(pos.offset, 1)
+
+      lex_loop(lexer, [#(Identifier(identifier), pos), ..acc])
+    }
+
     // hexadecimal numbers
     "0x" <> rest | "0X" <> rest -> {
       let pos = Position(lexer.offset, lexer.column, lexer.line)
@@ -466,8 +476,6 @@ fn lex_loop(
     "," <> rest ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, Comma), ..acc])
     "." <> rest -> lex_loop(advance(lexer, rest, 1), [token(lexer, Dot), ..acc])
-    "_" <> rest ->
-      lex_loop(advance(lexer, rest, 1), [token(lexer, Discard), ..acc])
 
     // check if we are at the end of the file
     _ ->
@@ -570,7 +578,7 @@ fn lex_string(
 
     "\\z" <> rest -> {
       let #(lexer, content) =
-        lex_whitespace(advance(lexer, rest, 1), position, 2)
+        lex_whitespace(advance(lexer, rest, 2), position, 2)
 
       lex_string(
         lexer,
@@ -580,6 +588,20 @@ fn lex_string(
         emit,
       )
     }
+
+    "\\" <> rest ->
+      case string.pop_grapheme(rest) {
+        Ok(#(grapheme, rest)) -> {
+          let to_move = string.length(grapheme) + 1
+          let slice = slice + to_move
+
+          advance(lexer, rest, to_move)
+          |> lex_string(position, slice, closing_quote, emit)
+        }
+        Error(_) ->
+          advance(lexer, rest, 1)
+          |> lex_string(position, slice + 1, closing_quote, emit)
+      }
 
     "" -> {
       let content = slice_bytes(lexer.original, position.offset + 1, slice)
@@ -696,6 +718,32 @@ fn lex_lowercase_word(
     | "x" <> rest
     | "y" <> rest
     | "z" <> rest
+    | "A" <> rest
+    | "B" <> rest
+    | "C" <> rest
+    | "D" <> rest
+    | "E" <> rest
+    | "F" <> rest
+    | "G" <> rest
+    | "H" <> rest
+    | "I" <> rest
+    | "J" <> rest
+    | "K" <> rest
+    | "L" <> rest
+    | "M" <> rest
+    | "N" <> rest
+    | "O" <> rest
+    | "P" <> rest
+    | "Q" <> rest
+    | "R" <> rest
+    | "S" <> rest
+    | "T" <> rest
+    | "U" <> rest
+    | "V" <> rest
+    | "W" <> rest
+    | "X" <> rest
+    | "Y" <> rest
+    | "Z" <> rest
     | "0" <> rest
     | "1" <> rest
     | "2" <> rest
@@ -787,6 +835,79 @@ fn lex_uppercase_word(
     | "_" <> rest ->
       advance(lexer, rest, 1)
       |> lex_uppercase_word(start, slice + 1)
+    _ -> {
+      let name = slice_bytes(lexer.original, start, slice)
+      #(lexer, name)
+    }
+  }
+}
+
+fn lex_discard_name(lexer: Lexer, start: Int, slice: Int) -> #(Lexer, String) {
+  case lexer.source {
+    "a" <> rest
+    | "b" <> rest
+    | "c" <> rest
+    | "d" <> rest
+    | "e" <> rest
+    | "f" <> rest
+    | "g" <> rest
+    | "h" <> rest
+    | "i" <> rest
+    | "j" <> rest
+    | "k" <> rest
+    | "l" <> rest
+    | "m" <> rest
+    | "n" <> rest
+    | "o" <> rest
+    | "p" <> rest
+    | "q" <> rest
+    | "r" <> rest
+    | "s" <> rest
+    | "t" <> rest
+    | "u" <> rest
+    | "v" <> rest
+    | "w" <> rest
+    | "x" <> rest
+    | "y" <> rest
+    | "z" <> rest
+    | "A" <> rest
+    | "B" <> rest
+    | "C" <> rest
+    | "D" <> rest
+    | "E" <> rest
+    | "F" <> rest
+    | "G" <> rest
+    | "H" <> rest
+    | "I" <> rest
+    | "J" <> rest
+    | "K" <> rest
+    | "L" <> rest
+    | "M" <> rest
+    | "N" <> rest
+    | "O" <> rest
+    | "P" <> rest
+    | "Q" <> rest
+    | "R" <> rest
+    | "S" <> rest
+    | "T" <> rest
+    | "U" <> rest
+    | "V" <> rest
+    | "W" <> rest
+    | "X" <> rest
+    | "Y" <> rest
+    | "Z" <> rest
+    | "0" <> rest
+    | "1" <> rest
+    | "2" <> rest
+    | "3" <> rest
+    | "4" <> rest
+    | "5" <> rest
+    | "6" <> rest
+    | "7" <> rest
+    | "8" <> rest
+    | "9" <> rest
+    | "_" <> rest ->
+      advance(lexer, rest, 1) |> lex_discard_name(start, slice + 1)
     _ -> {
       let name = slice_bytes(lexer.original, start, slice)
       #(lexer, name)
@@ -1042,14 +1163,7 @@ fn token(lexer: Lexer, token: Token) -> #(Token, Position) {
   #(token, Position(lexer.offset, lexer.column, lexer.line))
 }
 
-pub fn to_string(tokens: List(#(Token, Position))) -> String {
-  list.fold(tokens, "", fn(acc, pair) {
-    let #(token, _) = pair
-    token_to_string(token) <> acc
-  })
-}
-
-fn token_to_string(token: Token) -> String {
+pub fn token_to_string(token: Token) -> String {
   case token {
     // literals
     Identifier(str) -> str
@@ -1128,7 +1242,6 @@ fn token_to_string(token: Token) -> String {
     Comma -> ","
     Dot -> "."
     DotDotDot -> "..."
-    Discard -> "_"
 
     // whitespace
     Space(str) -> str
