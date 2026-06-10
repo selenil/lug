@@ -54,7 +54,11 @@ pub type Statement {
     paramaters: List(Parameter),
     body: Block,
   )
-  Local(location: Span, names: List(String), expressions: List(Expression))
+  Local(
+    location: Span,
+    names: List(AttributeName),
+    expressions: List(Expression),
+  )
   Return(location: Span, expressions: List(Expression))
 }
 
@@ -73,6 +77,15 @@ pub type FunctionName {
 pub type Parameter {
   NamedParameter(location: Span, name: String)
   VariadicParameter(location: Span)
+}
+
+pub type AttributeName {
+  AttributeName(attribute: option.Option(Attribute), name: String)
+}
+
+pub type Attribute {
+  Const
+  Close
 }
 
 pub type Expression {
@@ -147,6 +160,7 @@ pub type Span {
 pub type Error {
   UnexpectedToken(token: lexer.Token, position: lexer.Position)
   UnexpectedExpression(expression: Expression)
+  UnexpectedAttribute(attribute: String)
   UnexpectedEndOfInput
   ExpectedEndOfInput(rest: Tokens)
 }
@@ -490,7 +504,7 @@ fn local(
   tokens: Tokens,
   start: lexer.Position,
 ) -> Result(#(Statement, Tokens), Error) {
-  use #(names, end, tokens) <- result.try(identifier_list(tokens, []))
+  use #(names, end, tokens) <- result.try(attribute_names_list(tokens, []))
   case tokens {
     [#(lexer.Equal, _), ..tokens] -> {
       use #(values, end, tokens) <- result.try(expression_list(tokens, []))
@@ -500,6 +514,46 @@ fn local(
     }
 
     _ -> Ok(#(Local(Span(start, end), names, []), tokens))
+  }
+}
+
+fn attribute_names_list(
+  tokens: Tokens,
+  acc: List(AttributeName),
+) -> Result(#(List(AttributeName), lexer.Position, Tokens), Error) {
+  use #(name, start, tokens) <- result.try(identifier(tokens))
+  case tokens {
+    [#(lexer.Less, _), ..tokens] -> {
+      use #(attribute, _, tokens) <- result.try(identifier(tokens))
+      use attribute <- result.try(case attribute {
+        "const" -> Ok(Const)
+        "close" -> Ok(Close)
+        unexpected -> Error(UnexpectedAttribute(unexpected))
+      })
+      use end, tokens <- expect(lexer.Greater, tokens)
+
+      let attname = AttributeName(option.Some(attribute), name)
+      case tokens {
+        [#(lexer.Comma, _), ..tokens] ->
+          attribute_names_list(tokens, [attname, ..acc])
+        [] -> Error(UnexpectedEndOfInput)
+        _ -> Ok(#(list.reverse([attname, ..acc]), end, tokens))
+      }
+    }
+    _ -> {
+      let attname = AttributeName(option.None, name)
+      case tokens {
+        [#(lexer.Comma, _), ..tokens] ->
+          attribute_names_list(tokens, [attname, ..acc])
+        [] -> Error(UnexpectedEndOfInput)
+        _ ->
+          Ok(#(
+            list.reverse([attname, ..acc]),
+            string_offset(start, name),
+            tokens,
+          ))
+      }
+    }
   }
 }
 
