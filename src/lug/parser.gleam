@@ -607,6 +607,11 @@ fn prefix_expression(tokens: Tokens) -> Result(#(Expression, Tokens), Error) {
     [#(lexer.Int(n), start), ..tokens] | [#(lexer.Float(n), start), ..tokens] ->
       Ok(#(Numeral(string_span(start, n), n), tokens))
 
+    // number with leading dot
+    [#(lexer.Dot, start), #(lexer.Int(n), _), ..tokens]
+    | [#(lexer.Dot, start), #(lexer.Float(n), _), ..tokens] ->
+      Ok(#(Numeral(string_span(start, n), "0." <> n), tokens))
+
     [#(lexer.String(str), start), ..tokens]
     | [#(lexer.LongString(str), start), ..tokens] ->
       Ok(#(LiteralString(string_span(start, str), str), tokens))
