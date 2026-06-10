@@ -406,6 +406,17 @@ fn lex_loop(
       lex_loop(lexer, acc)
     }
 
+    // hexadecimal numbers prefixed with a negation
+    "-0x" <> rest | "-0X" <> rest -> {
+      let minus = token(lexer, Minus)
+      let lexer = advance(lexer, "0x" <> rest, 1)
+      let pos = Position(lexer.offset, lexer.column, lexer.line)
+      let #(lexer, number) =
+        advance(lexer, rest, 2) |> lex_hexadecimal_int(pos, 2)
+
+      lex_loop(lexer, [number, minus, ..acc])
+    }
+
     "-0" <> rest
     | "-1" <> rest
     | "-2" <> rest
