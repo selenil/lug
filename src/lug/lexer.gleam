@@ -1082,6 +1082,23 @@ fn lex_hexadecimal_int(
   slice: Int,
 ) -> #(Lexer, #(Token, Position)) {
   case lexer.source {
+    // exponential
+    "e+" <> rest | "E+" <> rest ->
+      advance(lexer, rest, 2) |> lex_hexadecimal_float(start, slice + 2)
+
+    "e-" <> rest | "E-" <> rest ->
+      advance(lexer, rest, 2) |> lex_hexadecimal_float(start, slice + 2)
+
+    // radix
+    "p+" <> rest | "P+" <> rest ->
+      advance(lexer, rest, 2) |> lex_hexadecimal_float(start, slice + 2)
+
+    "p-" <> rest | "P-" <> rest ->
+      advance(lexer, rest, 2) |> lex_hexadecimal_float(start, slice + 2)
+
+    "p" <> rest | "P" <> rest ->
+      advance(lexer, rest, 1) |> lex_hexadecimal_float(start, slice + 1)
+
     "0" <> rest
     | "1" <> rest
     | "2" <> rest
@@ -1113,16 +1130,6 @@ fn lex_hexadecimal_int(
     "." <> rest ->
       advance(lexer, rest, 1) |> lex_hexadecimal_float(start, slice + 1)
 
-    // radix
-    "p+" <> rest | "P+" <> rest ->
-      advance(lexer, rest, 2) |> lex_hexadecimal_float(start, slice + 2)
-
-    "p-" <> rest | "P-" <> rest ->
-      advance(lexer, rest, 2) |> lex_hexadecimal_float(start, slice + 2)
-
-    "p" <> rest | "P" <> rest ->
-      advance(lexer, rest, 1) |> lex_hexadecimal_float(start, slice + 1)
-
     _ -> consume_int(lexer, start, slice)
   }
 }
@@ -1133,6 +1140,23 @@ fn lex_hexadecimal_float(
   slice: Int,
 ) -> #(Lexer, #(Token, Position)) {
   case lexer.source {
+    // exponential
+    "e+" <> rest | "E+" <> rest ->
+      advance(lexer, rest, 2) |> lex_hexadecimal_float(start, slice + 2)
+
+    "e-" <> rest | "E-" <> rest ->
+      advance(lexer, rest, 2) |> lex_hexadecimal_float(start, slice + 2)
+
+    // radix
+    "p+" <> rest | "P+" <> rest ->
+      advance(lexer, rest, 2) |> lex_hexadecimal_float(start, slice + 2)
+
+    "p-" <> rest | "P-" <> rest ->
+      advance(lexer, rest, 2) |> lex_hexadecimal_float(start, slice + 2)
+
+    "p" <> rest | "P" <> rest ->
+      advance(lexer, rest, 1) |> lex_hexadecimal_float(start, slice + 1)
+
     "0" <> rest
     | "1" <> rest
     | "2" <> rest
@@ -1155,16 +1179,6 @@ fn lex_hexadecimal_float(
     | "E" <> rest
     | "f" <> rest
     | "F" <> rest ->
-      advance(lexer, rest, 1) |> lex_hexadecimal_float(start, slice + 1)
-
-    // radix
-    "p+" <> rest | "P+" <> rest ->
-      advance(lexer, rest, 2) |> lex_hexadecimal_float(start, slice + 2)
-
-    "p-" <> rest | "P-" <> rest ->
-      advance(lexer, rest, 2) |> lex_hexadecimal_float(start, slice + 2)
-
-    "p" <> rest | "P" <> rest ->
       advance(lexer, rest, 1) |> lex_hexadecimal_float(start, slice + 1)
 
     _ -> consume_float(lexer, start, slice)
