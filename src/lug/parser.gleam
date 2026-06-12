@@ -384,6 +384,7 @@ fn for(
 ) -> Result(#(Statement, Tokens), Error) {
   use #(var, _, rest) <- result.try(identifier(tokens))
   case rest {
+    // numeric for
     [#(lexer.Equal, _), ..tokens] -> {
       use #(init, tokens) <- result.try(expression(tokens))
       use _, tokens <- expect(lexer.Comma, tokens)
@@ -403,6 +404,8 @@ fn for(
       let span = Span(start, end)
       Ok(#(For(span, var, init, limit, step, body), tokens))
     }
+
+    // generic for with multiple variables
     [#(lexer.Comma, _), ..tokens] -> {
       use #(variables, _, tokens) <- result.try(identifier_list(tokens, []))
       use _, tokens <- expect(lexer.In, tokens)
@@ -418,6 +421,8 @@ fn for(
       let span = Span(start, end)
       Ok(#(ForIn(span, [var, ..variables], expressions, body), tokens))
     }
+
+    // generic for with a single variable
     [#(lexer.In, _), ..tokens] -> {
       use expressions, _, tokens <- comma_delimited_until(
         lexer.Do,
@@ -430,6 +435,7 @@ fn for(
       let span = Span(start, end)
       Ok(#(ForIn(span, [var], expressions, body), tokens))
     }
+
     [#(unexpected, position), ..] ->
       Error(UnexpectedToken(unexpected, position))
     [] -> Error(UnexpectedEndOfInput)
@@ -960,7 +966,7 @@ fn identifier_list(
   case tokens {
     [#(lexer.Comma, _), ..tokens] -> identifier_list(tokens, [name, ..acc])
     [] -> Error(UnexpectedEndOfInput)
-    _ -> Ok(#(list.reverse(acc), string_offset(start, name), tokens))
+    _ -> Ok(#(list.reverse([name, ..acc]), string_offset(start, name), tokens))
   }
 }
 
