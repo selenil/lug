@@ -878,7 +878,7 @@ fn do_table(
           do_table(tokens, [field, ..acc])
 
         [#(lexer.RightBrace, end), ..tokens] ->
-          Ok(#(list.reverse(acc), end, tokens))
+          Ok(#(list.reverse([field, ..acc]), end, tokens))
 
         [#(unexpected, position), ..] ->
           Error(UnexpectedToken(unexpected, position))
