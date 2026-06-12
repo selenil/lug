@@ -706,9 +706,6 @@ fn bind_expression(
       binary_operation(BitwiseXor, tokens, start, prefix, minimun_binding)
 
     [#(lexer.GreaterGreater, start), ..] ->
-      binary_operation(BitwiseShiftLeft, tokens, start, prefix, minimun_binding)
-
-    [#(lexer.LessLess, start), ..] ->
       binary_operation(
         BitwiseShiftRight,
         tokens,
@@ -716,6 +713,9 @@ fn bind_expression(
         prefix,
         minimun_binding,
       )
+
+    [#(lexer.LessLess, start), ..] ->
+      binary_operation(BitwiseShiftLeft, tokens, start, prefix, minimun_binding)
 
     [#(lexer.And, start), ..] ->
       binary_operation(BooleanAnd, tokens, start, prefix, minimun_binding)
