@@ -1037,7 +1037,8 @@ fn expect(
   next: fn(lexer.Position, Tokens) -> Result(t, Error),
 ) -> Result(t, Error) {
   case tokens {
-    [#(token, start), ..rest] if token == expected -> next(start, rest)
+    [#(token, start), ..rest] if token == expected ->
+      next(token_offset(start, token), rest)
     [#(unexpected, position), ..] ->
       Error(UnexpectedToken(unexpected, position))
     [] -> Error(UnexpectedEndOfInput)
