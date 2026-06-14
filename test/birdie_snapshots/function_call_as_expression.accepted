@@ -1,0 +1,47 @@
+---
+version: 2.0.0
+title: function_call_as_expression
+---
+local a = fun(b)
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(16, 17, 1),
+  ),
+  [
+    Local(
+      Span(
+        Position(0, 1, 1),
+        Position(16, 17, 1),
+      ),
+      [AttributeName(None, "a")],
+      [
+        Call(
+          Span(
+            Position(10, 11, 1),
+            Position(16, 17, 1),
+          ),
+          Variable(
+            Span(
+              Position(10, 11, 1),
+              Position(13, 14, 1),
+            ),
+            "fun",
+          ),
+          [
+            Variable(
+              Span(
+                Position(14, 15, 1),
+                Position(15, 16, 1),
+              ),
+              "b",
+            ),
+          ],
+        ),
+      ],
+    ),
+  ],
+)

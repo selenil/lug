@@ -1,0 +1,215 @@
+---
+version: 2.0.0
+title: if_with_multiple_else_if
+---
+if a == 1 then
+  return false
+elseif a == 2 then
+  return true
+elseif b == 1 then
+  return false
+elseif b == 2 then
+  return true
+end
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(133, 4, 9),
+  ),
+  [
+    If(
+      Span(
+        Position(0, 1, 1),
+        Position(133, 4, 9),
+      ),
+      BinaryOperation(
+        Span(
+          Position(5, 6, 1),
+          Position(9, 10, 1),
+        ),
+        Eq,
+        Variable(
+          Span(
+            Position(3, 4, 1),
+            Position(4, 5, 1),
+          ),
+          "a",
+        ),
+        Numeral(
+          Span(
+            Position(8, 9, 1),
+            Position(9, 10, 1),
+          ),
+          "1",
+        ),
+      ),
+      Block(
+        Span(
+          Position(17, 3, 2),
+          Position(30, 1, 3),
+        ),
+        [
+          Return(
+            Span(
+              Position(17, 3, 2),
+              Position(29, 15, 2),
+            ),
+            [
+              BooleanFalse(Span(
+                Position(24, 10, 2),
+                Position(29, 15, 2),
+              )),
+            ],
+          ),
+        ],
+      ),
+      [
+        Elseif(
+          Span(
+            Position(30, 1, 3),
+            Position(63, 1, 5),
+          ),
+          BinaryOperation(
+            Span(
+              Position(39, 10, 3),
+              Position(43, 14, 3),
+            ),
+            Eq,
+            Variable(
+              Span(
+                Position(37, 8, 3),
+                Position(38, 9, 3),
+              ),
+              "a",
+            ),
+            Numeral(
+              Span(
+                Position(42, 13, 3),
+                Position(43, 14, 3),
+              ),
+              "2",
+            ),
+          ),
+          Block(
+            Span(
+              Position(51, 3, 4),
+              Position(63, 1, 5),
+            ),
+            [
+              Return(
+                Span(
+                  Position(51, 3, 4),
+                  Position(62, 14, 4),
+                ),
+                [
+                  BooleanTrue(Span(
+                    Position(58, 10, 4),
+                    Position(62, 14, 4),
+                  )),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Elseif(
+          Span(
+            Position(63, 1, 5),
+            Position(97, 1, 7),
+          ),
+          BinaryOperation(
+            Span(
+              Position(72, 10, 5),
+              Position(76, 14, 5),
+            ),
+            Eq,
+            Variable(
+              Span(
+                Position(70, 8, 5),
+                Position(71, 9, 5),
+              ),
+              "b",
+            ),
+            Numeral(
+              Span(
+                Position(75, 13, 5),
+                Position(76, 14, 5),
+              ),
+              "1",
+            ),
+          ),
+          Block(
+            Span(
+              Position(84, 3, 6),
+              Position(97, 1, 7),
+            ),
+            [
+              Return(
+                Span(
+                  Position(84, 3, 6),
+                  Position(96, 15, 6),
+                ),
+                [
+                  BooleanFalse(Span(
+                    Position(91, 10, 6),
+                    Position(96, 15, 6),
+                  )),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Elseif(
+          Span(
+            Position(97, 1, 7),
+            Position(130, 1, 9),
+          ),
+          BinaryOperation(
+            Span(
+              Position(106, 10, 7),
+              Position(110, 14, 7),
+            ),
+            Eq,
+            Variable(
+              Span(
+                Position(104, 8, 7),
+                Position(105, 9, 7),
+              ),
+              "b",
+            ),
+            Numeral(
+              Span(
+                Position(109, 13, 7),
+                Position(110, 14, 7),
+              ),
+              "2",
+            ),
+          ),
+          Block(
+            Span(
+              Position(118, 3, 8),
+              Position(130, 1, 9),
+            ),
+            [
+              Return(
+                Span(
+                  Position(118, 3, 8),
+                  Position(129, 14, 8),
+                ),
+                [
+                  BooleanTrue(Span(
+                    Position(125, 10, 8),
+                    Position(129, 14, 8),
+                  )),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+      None,
+    ),
+  ],
+)

@@ -1,0 +1,51 @@
+---
+version: 2.0.0
+title: method_call_without_arguments
+---
+obj:method()
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(12, 13, 1),
+  ),
+  [
+    FunctionCall(
+      Span(
+        Position(0, 1, 1),
+        Position(12, 13, 1),
+      ),
+      Index(
+        Span(
+          Position(0, 1, 1),
+          Position(9, 10, 1),
+        ),
+        Variable(
+          Span(
+            Position(0, 1, 1),
+            Position(3, 4, 1),
+          ),
+          "obj",
+        ),
+        Variable(
+          Span(
+            Position(3, 4, 1),
+            Position(9, 10, 1),
+          ),
+          "method",
+        ),
+      ),
+      [
+        Variable(
+          Span(
+            Position(0, 1, 1),
+            Position(3, 4, 1),
+          ),
+          "obj",
+        ),
+      ],
+    ),
+  ],
+)

@@ -1,0 +1,31 @@
+---
+version: 2.0.0
+title: numeral_negation
+---
+return -1
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(9, 10, 1),
+  ),
+  [
+    Return(
+      Span(
+        Position(0, 1, 1),
+        Position(9, 10, 1),
+      ),
+      [
+        Numeral(
+          Span(
+            Position(7, 8, 1),
+            Position(9, 10, 1),
+          ),
+          "-1",
+        ),
+      ],
+    ),
+  ],
+)

@@ -1,0 +1,12 @@
+---
+version: 2.0.0
+title: do_block_location
+---
+do
+▔▔
+  local a = 1
+▔▔▔▔▔▔▔▔▔▔▔▔▔
+  return a
+▔▔▔▔▔▔▔▔▔▔
+end
+▔▔▔

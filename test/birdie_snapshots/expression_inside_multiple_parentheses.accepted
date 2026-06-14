@@ -1,0 +1,31 @@
+---
+version: 2.0.0
+title: expression_inside_multiple_parentheses
+---
+return (((0)))
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(14, 15, 1),
+  ),
+  [
+    Return(
+      Span(
+        Position(0, 1, 1),
+        Position(11, 12, 1),
+      ),
+      [
+        Numeral(
+          Span(
+            Position(10, 11, 1),
+            Position(11, 12, 1),
+          ),
+          "0",
+        ),
+      ],
+    ),
+  ],
+)

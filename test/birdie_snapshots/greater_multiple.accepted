@@ -1,0 +1,59 @@
+---
+version: 2.0.0
+title: greater_multiple
+---
+return x > y > z
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(16, 17, 1),
+  ),
+  [
+    Return(
+      Span(
+        Position(0, 1, 1),
+        Position(16, 17, 1),
+      ),
+      [
+        BinaryOperation(
+          Span(
+            Position(13, 14, 1),
+            Position(16, 17, 1),
+          ),
+          Gt,
+          BinaryOperation(
+            Span(
+              Position(9, 10, 1),
+              Position(12, 13, 1),
+            ),
+            Gt,
+            Variable(
+              Span(
+                Position(7, 8, 1),
+                Position(8, 9, 1),
+              ),
+              "x",
+            ),
+            Variable(
+              Span(
+                Position(11, 12, 1),
+                Position(12, 13, 1),
+              ),
+              "y",
+            ),
+          ),
+          Variable(
+            Span(
+              Position(15, 16, 1),
+              Position(16, 17, 1),
+            ),
+            "z",
+          ),
+        ),
+      ],
+    ),
+  ],
+)

@@ -1,0 +1,28 @@
+---
+version: 2.0.0
+title: return
+---
+return true
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(11, 12, 1),
+  ),
+  [
+    Return(
+      Span(
+        Position(0, 1, 1),
+        Position(11, 12, 1),
+      ),
+      [
+        BooleanTrue(Span(
+          Position(7, 8, 1),
+          Position(11, 12, 1),
+        )),
+      ],
+    ),
+  ],
+)
