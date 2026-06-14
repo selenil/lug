@@ -1,0 +1,150 @@
+---
+version: 2.0.0
+title: map_table_with_record_syntax
+---
+return {['a'] = 1, ['b' .. '2'] = 2, [1 + 2 * 3] = 3}
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(53, 54, 1),
+  ),
+  [
+    Return(
+      Span(
+        Position(0, 1, 1),
+        Position(53, 54, 1),
+      ),
+      [
+        Table(
+          Span(
+            Position(7, 8, 1),
+            Position(53, 54, 1),
+          ),
+          [
+            RecordField(
+              Span(
+                Position(8, 9, 1),
+                Position(17, 18, 1),
+              ),
+              LiteralString(
+                Span(
+                  Position(9, 10, 1),
+                  Position(10, 11, 1),
+                ),
+                "a",
+              ),
+              Numeral(
+                Span(
+                  Position(16, 17, 1),
+                  Position(17, 18, 1),
+                ),
+                "1",
+              ),
+            ),
+            RecordField(
+              Span(
+                Position(19, 20, 1),
+                Position(35, 36, 1),
+              ),
+              BinaryOperation(
+                Span(
+                  Position(24, 25, 1),
+                  Position(28, 29, 1),
+                ),
+                Concat,
+                LiteralString(
+                  Span(
+                    Position(20, 21, 1),
+                    Position(21, 22, 1),
+                  ),
+                  "b",
+                ),
+                LiteralString(
+                  Span(
+                    Position(27, 28, 1),
+                    Position(28, 29, 1),
+                  ),
+                  "2",
+                ),
+              ),
+              Numeral(
+                Span(
+                  Position(34, 35, 1),
+                  Position(35, 36, 1),
+                ),
+                "2",
+              ),
+            ),
+            RecordField(
+              Span(
+                Position(37, 38, 1),
+                Position(52, 53, 1),
+              ),
+              BinaryOperation(
+                Span(
+                  Position(40, 41, 1),
+                  Position(47, 48, 1),
+                ),
+                Add,
+                Numeral(
+                  Span(
+                    Position(38, 39, 1),
+                    Position(39, 40, 1),
+                  ),
+                  "1",
+                ),
+                BinaryOperation(
+                  Span(
+                    Position(44, 45, 1),
+                    Position(47, 48, 1),
+                  ),
+                  Mult,
+                  Numeral(
+                    Span(
+                      Position(
+                        42,
+                        43,
+                        1,
+                      ),
+                      Position(
+                        43,
+                        44,
+                        1,
+                      ),
+                    ),
+                    "2",
+                  ),
+                  Numeral(
+                    Span(
+                      Position(
+                        46,
+                        47,
+                        1,
+                      ),
+                      Position(
+                        47,
+                        48,
+                        1,
+                      ),
+                    ),
+                    "3",
+                  ),
+                ),
+              ),
+              Numeral(
+                Span(
+                  Position(51, 52, 1),
+                  Position(52, 53, 1),
+                ),
+                "3",
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  ],
+)

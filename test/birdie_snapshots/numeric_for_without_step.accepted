@@ -1,0 +1,68 @@
+---
+version: 2.0.0
+title: numeric_for_without_step
+---
+for i = 0, 5 do print(i) end
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(28, 29, 1),
+  ),
+  [
+    For(
+      Span(
+        Position(0, 1, 1),
+        Position(28, 29, 1),
+      ),
+      "i",
+      Numeral(
+        Span(
+          Position(8, 9, 1),
+          Position(9, 10, 1),
+        ),
+        "0",
+      ),
+      Numeral(
+        Span(
+          Position(11, 12, 1),
+          Position(12, 13, 1),
+        ),
+        "5",
+      ),
+      None,
+      Block(
+        Span(
+          Position(16, 17, 1),
+          Position(25, 26, 1),
+        ),
+        [
+          FunctionCall(
+            Span(
+              Position(16, 17, 1),
+              Position(24, 25, 1),
+            ),
+            Variable(
+              Span(
+                Position(16, 17, 1),
+                Position(21, 22, 1),
+              ),
+              "print",
+            ),
+            [
+              Variable(
+                Span(
+                  Position(22, 23, 1),
+                  Position(23, 24, 1),
+                ),
+                "i",
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  ],
+)

@@ -1,0 +1,112 @@
+---
+version: 2.0.0
+title: map_table_with_different_syntax
+---
+return {['a'] = 1, b = 2, ['c'] = 3, d = 4}
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(43, 44, 1),
+  ),
+  [
+    Return(
+      Span(
+        Position(0, 1, 1),
+        Position(43, 44, 1),
+      ),
+      [
+        Table(
+          Span(
+            Position(7, 8, 1),
+            Position(43, 44, 1),
+          ),
+          [
+            RecordField(
+              Span(
+                Position(8, 9, 1),
+                Position(17, 18, 1),
+              ),
+              LiteralString(
+                Span(
+                  Position(9, 10, 1),
+                  Position(10, 11, 1),
+                ),
+                "a",
+              ),
+              Numeral(
+                Span(
+                  Position(16, 17, 1),
+                  Position(17, 18, 1),
+                ),
+                "1",
+              ),
+            ),
+            RecordField(
+              Span(
+                Position(19, 20, 1),
+                Position(24, 25, 1),
+              ),
+              LiteralString(
+                Span(
+                  Position(19, 20, 1),
+                  Position(20, 21, 1),
+                ),
+                "b",
+              ),
+              Numeral(
+                Span(
+                  Position(23, 24, 1),
+                  Position(24, 25, 1),
+                ),
+                "2",
+              ),
+            ),
+            RecordField(
+              Span(
+                Position(26, 27, 1),
+                Position(35, 36, 1),
+              ),
+              LiteralString(
+                Span(
+                  Position(27, 28, 1),
+                  Position(28, 29, 1),
+                ),
+                "c",
+              ),
+              Numeral(
+                Span(
+                  Position(34, 35, 1),
+                  Position(35, 36, 1),
+                ),
+                "3",
+              ),
+            ),
+            RecordField(
+              Span(
+                Position(37, 38, 1),
+                Position(42, 43, 1),
+              ),
+              LiteralString(
+                Span(
+                  Position(37, 38, 1),
+                  Position(38, 39, 1),
+                ),
+                "d",
+              ),
+              Numeral(
+                Span(
+                  Position(41, 42, 1),
+                  Position(42, 43, 1),
+                ),
+                "4",
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  ],
+)

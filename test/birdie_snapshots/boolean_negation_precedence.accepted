@@ -1,0 +1,46 @@
+---
+version: 2.0.0
+title: boolean_negation_precedence
+---
+return not true and false
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(25, 26, 1),
+  ),
+  [
+    Return(
+      Span(
+        Position(0, 1, 1),
+        Position(25, 26, 1),
+      ),
+      [
+        BinaryOperation(
+          Span(
+            Position(16, 17, 1),
+            Position(25, 26, 1),
+          ),
+          BooleanAnd,
+          UnaryOperation(
+            Span(
+              Position(7, 8, 1),
+              Position(15, 16, 1),
+            ),
+            BooleanNegation,
+            BooleanTrue(Span(
+              Position(11, 12, 1),
+              Position(15, 16, 1),
+            )),
+          ),
+          BooleanFalse(Span(
+            Position(20, 21, 1),
+            Position(25, 26, 1),
+          )),
+        ),
+      ],
+    ),
+  ],
+)

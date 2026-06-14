@@ -1,0 +1,59 @@
+---
+version: 2.0.0
+title: table_function_call
+---
+return tbl.fun(x)
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(17, 18, 1),
+  ),
+  [
+    Return(
+      Span(
+        Position(0, 1, 1),
+        Position(17, 18, 1),
+      ),
+      [
+        Call(
+          Span(
+            Position(7, 8, 1),
+            Position(17, 18, 1),
+          ),
+          Index(
+            Span(
+              Position(7, 8, 1),
+              Position(14, 15, 1),
+            ),
+            Variable(
+              Span(
+                Position(7, 8, 1),
+                Position(10, 11, 1),
+              ),
+              "tbl",
+            ),
+            LiteralString(
+              Span(
+                Position(11, 12, 1),
+                Position(14, 15, 1),
+              ),
+              "fun",
+            ),
+          ),
+          [
+            Variable(
+              Span(
+                Position(15, 16, 1),
+                Position(16, 17, 1),
+              ),
+              "x",
+            ),
+          ],
+        ),
+      ],
+    ),
+  ],
+)

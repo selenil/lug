@@ -1,0 +1,59 @@
+---
+version: 2.0.0
+title: boolean_and_multiple
+---
+return x and y and z
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(20, 21, 1),
+  ),
+  [
+    Return(
+      Span(
+        Position(0, 1, 1),
+        Position(20, 21, 1),
+      ),
+      [
+        BinaryOperation(
+          Span(
+            Position(15, 16, 1),
+            Position(20, 21, 1),
+          ),
+          BooleanAnd,
+          BinaryOperation(
+            Span(
+              Position(9, 10, 1),
+              Position(14, 15, 1),
+            ),
+            BooleanAnd,
+            Variable(
+              Span(
+                Position(7, 8, 1),
+                Position(8, 9, 1),
+              ),
+              "x",
+            ),
+            Variable(
+              Span(
+                Position(13, 14, 1),
+                Position(14, 15, 1),
+              ),
+              "y",
+            ),
+          ),
+          Variable(
+            Span(
+              Position(19, 20, 1),
+              Position(20, 21, 1),
+            ),
+            "z",
+          ),
+        ),
+      ],
+    ),
+  ],
+)

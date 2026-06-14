@@ -1,0 +1,42 @@
+---
+version: 2.0.0
+title: return_multiple_values
+---
+return 'a string', 1, false
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(27, 28, 1),
+  ),
+  [
+    Return(
+      Span(
+        Position(0, 1, 1),
+        Position(27, 28, 1),
+      ),
+      [
+        LiteralString(
+          Span(
+            Position(7, 8, 1),
+            Position(15, 16, 1),
+          ),
+          "a string",
+        ),
+        Numeral(
+          Span(
+            Position(19, 20, 1),
+            Position(20, 21, 1),
+          ),
+          "1",
+        ),
+        BooleanFalse(Span(
+          Position(22, 23, 1),
+          Position(27, 28, 1),
+        )),
+      ],
+    ),
+  ],
+)

@@ -1,0 +1,73 @@
+---
+version: 2.0.0
+title: mod_multiple
+---
+return 1 % x % 3 % y
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(20, 21, 1),
+  ),
+  [
+    Return(
+      Span(
+        Position(0, 1, 1),
+        Position(20, 21, 1),
+      ),
+      [
+        BinaryOperation(
+          Span(
+            Position(17, 18, 1),
+            Position(20, 21, 1),
+          ),
+          Mod,
+          BinaryOperation(
+            Span(
+              Position(13, 14, 1),
+              Position(16, 17, 1),
+            ),
+            Mod,
+            BinaryOperation(
+              Span(
+                Position(9, 10, 1),
+                Position(12, 13, 1),
+              ),
+              Mod,
+              Numeral(
+                Span(
+                  Position(7, 8, 1),
+                  Position(8, 9, 1),
+                ),
+                "1",
+              ),
+              Variable(
+                Span(
+                  Position(11, 12, 1),
+                  Position(12, 13, 1),
+                ),
+                "x",
+              ),
+            ),
+            Numeral(
+              Span(
+                Position(15, 16, 1),
+                Position(16, 17, 1),
+              ),
+              "3",
+            ),
+          ),
+          Variable(
+            Span(
+              Position(19, 20, 1),
+              Position(20, 21, 1),
+            ),
+            "y",
+          ),
+        ),
+      ],
+    ),
+  ],
+)

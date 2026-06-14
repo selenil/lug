@@ -558,8 +558,8 @@ fn lex_long_comment(lexer: Lexer, position: Position, slice: Int, depth: Int) {
         }
 
         option.Some(#(rest, found)) ->
-          advance(lexer, rest, found + 2)
-          |> lex_long_comment(position, slice + found + 2, depth)
+          advance(lexer, "]" <> rest, found + 1)
+          |> lex_long_comment(position, slice + found + 1, depth)
 
         option.None ->
           advance(lexer, rest, 1)
@@ -668,8 +668,8 @@ fn lex_long_string(lexer: Lexer, position: Position, slice: Int, depth: Int) {
         }
 
         option.Some(#(rest, found)) ->
-          advance(lexer, rest, found + 2)
-          |> lex_long_string(position, slice + found + 2, depth)
+          advance(lexer, "]" <> rest, found + 1)
+          |> lex_long_string(position, slice + found + 1, depth)
 
         option.None ->
           advance(lexer, rest, 1)

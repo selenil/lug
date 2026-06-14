@@ -1,0 +1,18 @@
+---
+version: 2.0.0
+title: if_with_else_if_and_else_location
+---
+if a == 1 then
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+  return true
+▔▔▔▔▔▔▔▔▔▔▔▔▔
+elseif b == 2 then
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+  return true
+▔▔▔▔▔▔▔▔▔▔▔▔▔
+else
+▔▔▔▔
+  return true
+▔▔▔▔▔▔▔▔▔▔▔▔▔
+end
+▔▔▔

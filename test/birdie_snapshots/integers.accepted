@@ -1,0 +1,82 @@
+---
+version: 2.0.0
+title: integers
+---
+a, b, c, d = 1, 2, 30, 500
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(26, 27, 1),
+  ),
+  [
+    Assignment(
+      Span(
+        Position(0, 1, 1),
+        Position(26, 27, 1),
+      ),
+      [
+        Variable(
+          Span(
+            Position(0, 1, 1),
+            Position(1, 2, 1),
+          ),
+          "a",
+        ),
+        Variable(
+          Span(
+            Position(3, 4, 1),
+            Position(4, 5, 1),
+          ),
+          "b",
+        ),
+        Variable(
+          Span(
+            Position(6, 7, 1),
+            Position(7, 8, 1),
+          ),
+          "c",
+        ),
+        Variable(
+          Span(
+            Position(9, 10, 1),
+            Position(10, 11, 1),
+          ),
+          "d",
+        ),
+      ],
+      [
+        Numeral(
+          Span(
+            Position(13, 14, 1),
+            Position(14, 15, 1),
+          ),
+          "1",
+        ),
+        Numeral(
+          Span(
+            Position(16, 17, 1),
+            Position(17, 18, 1),
+          ),
+          "2",
+        ),
+        Numeral(
+          Span(
+            Position(19, 20, 1),
+            Position(21, 22, 1),
+          ),
+          "30",
+        ),
+        Numeral(
+          Span(
+            Position(23, 24, 1),
+            Position(26, 27, 1),
+          ),
+          "500",
+        ),
+      ],
+    ),
+  ],
+)

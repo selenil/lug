@@ -1,0 +1,58 @@
+---
+version: 2.0.0
+title: method_call_with_string
+---
+obj:print 'a string'
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(20, 21, 1),
+  ),
+  [
+    FunctionCall(
+      Span(
+        Position(0, 1, 1),
+        Position(18, 19, 1),
+      ),
+      Index(
+        Span(
+          Position(0, 1, 1),
+          Position(8, 9, 1),
+        ),
+        Variable(
+          Span(
+            Position(0, 1, 1),
+            Position(3, 4, 1),
+          ),
+          "obj",
+        ),
+        Variable(
+          Span(
+            Position(3, 4, 1),
+            Position(8, 9, 1),
+          ),
+          "print",
+        ),
+      ),
+      [
+        Variable(
+          Span(
+            Position(0, 1, 1),
+            Position(3, 4, 1),
+          ),
+          "obj",
+        ),
+        LiteralString(
+          Span(
+            Position(10, 11, 1),
+            Position(18, 19, 1),
+          ),
+          "a string",
+        ),
+      ],
+    ),
+  ],
+)
