@@ -159,7 +159,6 @@ pub type Span {
 
 pub type Error {
   UnexpectedToken(token: lexer.Token, position: lexer.Position)
-  UnexpectedExpression(expression: Expression)
   UnexpectedAttribute(attribute: String)
   UnexpectedEndOfInput
   ExpectedEndOfInput(rest: Tokens)
