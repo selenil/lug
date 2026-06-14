@@ -296,9 +296,10 @@ fn goto(
   tokens: Tokens,
   start: lexer.Position,
 ) -> Result(#(Statement, Tokens), Error) {
-  use #(label, _, tokens) <- result.try(identifier(tokens))
+  use #(label, label_start, tokens) <- result.try(identifier(tokens))
 
-  let span = string_span(start, label)
+  let end = string_offset(label_start, label)
+  let span = Span(start, end)
   Ok(#(Goto(span, label), tokens))
 }
 
@@ -772,10 +773,10 @@ fn bind_expression(
       bind_expression(expr, tokens, minimun_binding)
     }
 
-    [#(lexer.Dot, start), ..tokens] -> {
-      use #(name, _, tokens) <- result.try(identifier(tokens))
+    [#(lexer.Dot, _), ..tokens] -> {
+      use #(name, name_start, tokens) <- result.try(identifier(tokens))
 
-      let str = LiteralString(string_span(start, name), name)
+      let str = LiteralString(string_span(name_start, name), name)
 
       let span = Span(prefix.location.start, str.location.end)
       let expr = Index(span, prefix, str)
@@ -869,7 +870,7 @@ fn do_table(
   case tokens {
     [] -> Error(UnexpectedEndOfInput)
     [#(lexer.RightBrace, end), ..tokens] ->
-      Ok(#(list.reverse(acc), end, tokens))
+      Ok(#(list.reverse(acc), token_offset(end, lexer.RightBrace), tokens))
     [#(_, start), ..] -> {
       use #(field, tokens) <- result.try(table_field(tokens, start))
       case tokens {
@@ -878,7 +879,11 @@ fn do_table(
           do_table(tokens, [field, ..acc])
 
         [#(lexer.RightBrace, end), ..tokens] ->
-          Ok(#(list.reverse([field, ..acc]), end, tokens))
+          Ok(#(
+            list.reverse([field, ..acc]),
+            token_offset(end, lexer.RightBrace),
+            tokens,
+          ))
 
         [#(unexpected, position), ..] ->
           Error(UnexpectedToken(unexpected, position))
