@@ -1356,9 +1356,12 @@ fn split_until_new_line(
   split_before(lexer.new_lines, string)
 }
 
-@external(erlang, "lug_ffi", "drop_byte")
-@external(javascript, "../lug_ffi.mjs", "drop_byte")
-fn drop_byte(string: BitArray) -> BitArray
+fn drop_byte(string: BitArray) -> BitArray {
+  case string {
+    <<_byte, rest:bits>> -> rest
+    _ -> string
+  }
+}
 
 @external(erlang, "lug_ffi", "nil")
 @external(javascript, "../lug_ffi.mjs", "nil")

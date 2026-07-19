@@ -1,10 +1,5 @@
 import { bitArraySlice } from "./gleam.mjs";
 
-// borrowed from https://github.com/DanielleMaywood/glexer
-export function drop_byte(bits) {
-    return bitArraySlice(bits, 8);
-}
-
 // borrowed from https://github.com/lpil/splitter
 export function compile_binary_pattern(patterns) {
     const encoder = new TextEncoder();

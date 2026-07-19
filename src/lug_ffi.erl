@@ -1,12 +1,5 @@
 -module(lug_ffi).
--export([drop_byte/1, compile_binary_pattern/1, split_before/2, nil/0]).
-
-%% borrowed from https://github.com/DanielleMaywood/glexer
-drop_byte(String) ->
-    case String of
-        <<_, Rest/bytes>> -> Rest;
-        _ -> String
-    end.
+-export([compile_binary_pattern/1, split_before/2, nil/0]).
 
 %% borrowed from https://github.com/lpil/splitter
 compile_binary_pattern(Pattern) ->
