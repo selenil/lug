@@ -165,7 +165,7 @@ pub type Error {
 }
 
 pub fn parse(code: String) -> Result(Block, Error) {
-  lexer.new(code)
+  lexer.from_string(code)
   |> lexer.discard_comments
   |> lexer.discard_whitespaces
   |> lexer.lex
@@ -601,7 +601,7 @@ fn do_expression(
 
 fn prefix_expression(tokens: Tokens) -> Result(#(Expression, Tokens), Error) {
   case tokens {
-    [#(lexer.Nil, start), ..tokens] ->
+    [#(lexer.Null, start), ..tokens] ->
       Ok(#(BooleanNil(token_span(start, lexer.Nil)), tokens))
 
     [#(lexer.BTrue, start), ..tokens] ->

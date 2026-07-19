@@ -29,3 +29,7 @@ export function split_before(splitter, string) {
   const split_point = match.index;
   return [string.slice(0, split_point), string.slice(split_point)];
 }
+
+export function nil() {
+  return undefined
+}
