@@ -26,8 +26,8 @@ pub type Token {
   Identifier(String)
   String(BitArray)
   LongString(BitArray)
-  Int(BitArray)
-  Float(BitArray)
+  Int(String)
+  Float(String)
   Comment(BitArray)
   LongComment(BitArray)
 
@@ -1046,8 +1046,11 @@ fn lex_int(
   }
 }
 
+/// Precondition: slice is a Lua int 
 fn consume_int(lexer: Lexer, position: Position, slice: Int) {
-  let content = slice_bytes(lexer.original, position.offset, slice)
+  let assert Ok(content) =
+    bit_array.slice(lexer.original, position.offset, slice)
+  let assert Ok(content) = bit_array.to_string(content)
   #(lexer, #(Int(content), position))
 }
 
@@ -1086,6 +1089,7 @@ fn lex_float(
   }
 }
 
+/// Precondition: slice is a Lua float 
 fn consume_float(
   lexer: Lexer,
   position: Position,
@@ -1101,6 +1105,7 @@ fn consume_float(
     Error(_nil) -> panic as "unreachable"
   }
 
+  let assert Ok(number) = bit_array.to_string(number)
   #(lexer, #(Float(number), position))
 }
 
@@ -1242,8 +1247,8 @@ pub fn token_to_string(token: Token) -> BitArray {
     Identifier(str) -> bit_array.from_string(str)
     String(str) -> str
     LongString(str) -> <<"[[", str:bits, "]]">>
-    Int(str) -> str
-    Float(str) -> str
+    Int(str) -> bit_array.from_string(str)
+    Float(str) -> bit_array.from_string(str)
     Comment(str) -> <<"--", str:bits>>
     LongComment(str) -> <<"--[[", str:bits, "]]">>
 

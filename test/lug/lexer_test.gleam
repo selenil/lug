@@ -334,10 +334,10 @@ pub fn lex_int_test() {
 
   assert tokens
     == [
-      #(lexer.Int(<<"1">>), lexer.Position(0, 1, 1)),
-      #(lexer.Int(<<"2">>), lexer.Position(2, 3, 1)),
-      #(lexer.Int(<<"30">>), lexer.Position(4, 5, 1)),
-      #(lexer.Int(<<"940">>), lexer.Position(7, 8, 1)),
+      #(lexer.Int("1"), lexer.Position(0, 1, 1)),
+      #(lexer.Int("2"), lexer.Position(2, 3, 1)),
+      #(lexer.Int("30"), lexer.Position(4, 5, 1)),
+      #(lexer.Int("940"), lexer.Position(7, 8, 1)),
       #(lexer.EndOfFile, lexer.Position(10, 11, 1)),
     ]
 }
@@ -350,9 +350,9 @@ pub fn lex_negative_int_test() {
 
   assert tokens
     == [
-      #(lexer.Int(<<"-1">>), lexer.Position(0, 1, 1)),
-      #(lexer.Int(<<"-2">>), lexer.Position(3, 4, 1)),
-      #(lexer.Int(<<"-570">>), lexer.Position(6, 7, 1)),
+      #(lexer.Int("-1"), lexer.Position(0, 1, 1)),
+      #(lexer.Int("-2"), lexer.Position(3, 4, 1)),
+      #(lexer.Int("-570"), lexer.Position(6, 7, 1)),
       #(lexer.EndOfFile, lexer.Position(10, 11, 1)),
     ]
 }
@@ -365,9 +365,9 @@ pub fn lex_hexadecimal_int_lowercase_test() {
 
   assert tokens
     == [
-      #(lexer.Int(<<"0xa">>), lexer.Position(0, 1, 1)),
-      #(lexer.Int(<<"0x2fff">>), lexer.Position(4, 5, 1)),
-      #(lexer.Int(<<"0x5ab87">>), lexer.Position(11, 12, 1)),
+      #(lexer.Int("0xa"), lexer.Position(0, 1, 1)),
+      #(lexer.Int("0x2fff"), lexer.Position(4, 5, 1)),
+      #(lexer.Int("0x5ab87"), lexer.Position(11, 12, 1)),
       #(lexer.EndOfFile, lexer.Position(18, 19, 1)),
     ]
 }
@@ -380,9 +380,9 @@ pub fn lex_hexadecimal_int_uppercase_test() {
 
   assert tokens
     == [
-      #(lexer.Int(<<"0XD">>), lexer.Position(0, 1, 1)),
-      #(lexer.Int(<<"0X3BBB">>), lexer.Position(4, 5, 1)),
-      #(lexer.Int(<<"0X8FBEE">>), lexer.Position(11, 12, 1)),
+      #(lexer.Int("0XD"), lexer.Position(0, 1, 1)),
+      #(lexer.Int("0X3BBB"), lexer.Position(4, 5, 1)),
+      #(lexer.Int("0X8FBEE"), lexer.Position(11, 12, 1)),
       #(lexer.EndOfFile, lexer.Position(18, 19, 1)),
     ]
 }
@@ -395,9 +395,9 @@ pub fn lex_hexadecimal_int_with_mixed_case_test() {
 
   assert tokens
     == [
-      #(lexer.Int(<<"0xdA">>), lexer.Position(0, 1, 1)),
-      #(lexer.Int(<<"0X21ee">>), lexer.Position(5, 6, 1)),
-      #(lexer.Int(<<"0xAbDDc">>), lexer.Position(12, 13, 1)),
+      #(lexer.Int("0xdA"), lexer.Position(0, 1, 1)),
+      #(lexer.Int("0X21ee"), lexer.Position(5, 6, 1)),
+      #(lexer.Int("0xAbDDc"), lexer.Position(12, 13, 1)),
       #(lexer.EndOfFile, lexer.Position(19, 20, 1)),
     ]
 }
@@ -410,9 +410,9 @@ pub fn lex_negative_int_with_negative_int_test() {
 
   assert tokens
     == [
-      #(lexer.Int(<<"-1">>), lexer.Position(0, 1, 1)),
+      #(lexer.Int("-1"), lexer.Position(0, 1, 1)),
       #(lexer.Minus, lexer.Position(2, 3, 1)),
-      #(lexer.Int(<<"1">>), lexer.Position(3, 4, 1)),
+      #(lexer.Int("1"), lexer.Position(3, 4, 1)),
       #(lexer.EndOfFile, lexer.Position(4, 5, 1)),
     ]
 }
@@ -425,8 +425,8 @@ pub fn lex_float_test() {
 
   assert tokens
     == [
-      #(lexer.Float(<<"1.2">>), lexer.Position(0, 1, 1)),
-      #(lexer.Float(<<"3.4">>), lexer.Position(4, 5, 1)),
+      #(lexer.Float("1.2"), lexer.Position(0, 1, 1)),
+      #(lexer.Float("3.4"), lexer.Position(4, 5, 1)),
       #(lexer.EndOfFile, lexer.Position(7, 8, 1)),
     ]
 }
@@ -439,8 +439,8 @@ pub fn lex_negative_float_test() {
 
   assert tokens
     == [
-      #(lexer.Float(<<"-5.6">>), lexer.Position(0, 1, 1)),
-      #(lexer.Float(<<"-7.8">>), lexer.Position(5, 6, 1)),
+      #(lexer.Float("-5.6"), lexer.Position(0, 1, 1)),
+      #(lexer.Float("-7.8"), lexer.Position(5, 6, 1)),
       #(lexer.EndOfFile, lexer.Position(9, 10, 1)),
     ]
 }
@@ -453,8 +453,8 @@ pub fn lex_float_with_exponential_lowercase_test() {
 
   assert tokens
     == [
-      #(lexer.Float(<<"48.5e-2">>), lexer.Position(0, 1, 1)),
-      #(lexer.Float(<<"9e+2">>), lexer.Position(8, 9, 1)),
+      #(lexer.Float("48.5e-2"), lexer.Position(0, 1, 1)),
+      #(lexer.Float("9e+2"), lexer.Position(8, 9, 1)),
       #(lexer.EndOfFile, lexer.Position(12, 13, 1)),
     ]
 }
@@ -467,8 +467,8 @@ pub fn lex_number_with_exponential_uppercase_test() {
 
   assert tokens
     == [
-      #(lexer.Float(<<"31.9E-3">>), lexer.Position(0, 1, 1)),
-      #(lexer.Float(<<"7E+6">>), lexer.Position(8, 9, 1)),
+      #(lexer.Float("31.9E-3"), lexer.Position(0, 1, 1)),
+      #(lexer.Float("7E+6"), lexer.Position(8, 9, 1)),
       #(lexer.EndOfFile, lexer.Position(12, 13, 1)),
     ]
 }
@@ -481,7 +481,7 @@ pub fn lex_hexadecimal_float_lowercase_test() {
 
   assert tokens
     == [
-      #(lexer.Float(<<"0x4f.2">>), lexer.Position(0, 1, 1)),
+      #(lexer.Float("0x4f.2"), lexer.Position(0, 1, 1)),
       #(lexer.EndOfFile, lexer.Position(6, 7, 1)),
     ]
 }
@@ -494,7 +494,7 @@ pub fn lex_hexadecimal_float_with_radix_lowercase_test() {
 
   assert tokens
     == [
-      #(lexer.Float(<<"0x58d.1p+2">>), lexer.Position(0, 1, 1)),
+      #(lexer.Float("0x58d.1p+2"), lexer.Position(0, 1, 1)),
       #(lexer.EndOfFile, lexer.Position(10, 11, 1)),
     ]
 }
@@ -507,7 +507,7 @@ pub fn lex_hexadecimal_float_with_radix_uppercase_test() {
 
   assert tokens
     == [
-      #(lexer.Float(<<"0xa47.3P-8">>), lexer.Position(0, 1, 1)),
+      #(lexer.Float("0xa47.3P-8"), lexer.Position(0, 1, 1)),
       #(lexer.EndOfFile, lexer.Position(10, 11, 1)),
     ]
 }
@@ -520,7 +520,7 @@ pub fn lex_hexadecimal_float_uppercase_test() {
 
   assert tokens
     == [
-      #(lexer.Float(<<"0X3CA.8">>), lexer.Position(0, 1, 1)),
+      #(lexer.Float("0X3CA.8"), lexer.Position(0, 1, 1)),
       #(lexer.EndOfFile, lexer.Position(7, 8, 1)),
     ]
 }
@@ -533,8 +533,8 @@ pub fn lex_float_with_mixed_cases_test() {
 
   assert tokens
     == [
-      #(lexer.Float(<<"0xBDca.45">>), lexer.Position(0, 1, 1)),
-      #(lexer.Float(<<"0XcaEA.31">>), lexer.Position(10, 11, 1)),
+      #(lexer.Float("0xBDca.45"), lexer.Position(0, 1, 1)),
+      #(lexer.Float("0XcaEA.31"), lexer.Position(10, 11, 1)),
       #(lexer.EndOfFile, lexer.Position(19, 20, 1)),
     ]
 }
@@ -547,9 +547,9 @@ pub fn lex_incorrect_float_test() {
 
   assert tokens
     == [
-      #(lexer.Int(<<"1">>), lexer.Position(0, 1, 1)),
+      #(lexer.Int("1"), lexer.Position(0, 1, 1)),
       #(lexer.DotDot, lexer.Position(1, 2, 1)),
-      #(lexer.Int(<<"2">>), lexer.Position(3, 4, 1)),
+      #(lexer.Int("2"), lexer.Position(3, 4, 1)),
       #(lexer.EndOfFile, lexer.Position(4, 5, 1)),
     ]
 
@@ -560,9 +560,9 @@ pub fn lex_incorrect_float_test() {
 
   assert tokens
     == [
-      #(lexer.Float(<<"1.2">>), lexer.Position(0, 1, 1)),
+      #(lexer.Float("1.2"), lexer.Position(0, 1, 1)),
       #(lexer.Dot, lexer.Position(3, 4, 1)),
-      #(lexer.Int(<<"3">>), lexer.Position(4, 5, 1)),
+      #(lexer.Int("3"), lexer.Position(4, 5, 1)),
       #(lexer.EndOfFile, lexer.Position(5, 6, 1)),
     ]
 }
@@ -575,7 +575,7 @@ pub fn lex_float_with_trailing_dot_test() {
 
   assert tokens
     == [
-      #(lexer.Float(<<"1.0">>), lexer.Position(0, 1, 1)),
+      #(lexer.Float("1.0"), lexer.Position(0, 1, 1)),
       #(lexer.EndOfFile, lexer.Position(2, 3, 1)),
     ]
 }
@@ -588,7 +588,7 @@ pub fn lex_invalid_hexadecimal_number_test() {
 
   assert tokens
     == [
-      #(lexer.Int(<<"0xa">>), lexer.Position(0, 1, 1)),
+      #(lexer.Int("0xa"), lexer.Position(0, 1, 1)),
       #(lexer.Identifier("gh"), lexer.Position(3, 4, 1)),
       #(lexer.EndOfFile, lexer.Position(5, 6, 1)),
     ]
@@ -786,24 +786,24 @@ pub fn lex_arithmetic_expression_test() {
 
   assert tokens
     == [
-      #(lexer.Int(<<"1">>), lexer.Position(0, 1, 1)),
+      #(lexer.Int("1"), lexer.Position(0, 1, 1)),
       #(lexer.Plus, lexer.Position(2, 3, 1)),
-      #(lexer.Int(<<"2">>), lexer.Position(4, 5, 1)),
+      #(lexer.Int("2"), lexer.Position(4, 5, 1)),
       #(lexer.Minus, lexer.Position(6, 7, 1)),
-      #(lexer.Int(<<"3">>), lexer.Position(8, 9, 1)),
+      #(lexer.Int("3"), lexer.Position(8, 9, 1)),
       #(lexer.Star, lexer.Position(10, 11, 1)),
-      #(lexer.Int(<<"4">>), lexer.Position(12, 13, 1)),
+      #(lexer.Int("4"), lexer.Position(12, 13, 1)),
       #(lexer.Slash, lexer.Position(14, 15, 1)),
       #(lexer.LeftParen, lexer.Position(16, 17, 1)),
-      #(lexer.Int(<<"5">>), lexer.Position(17, 18, 1)),
+      #(lexer.Int("5"), lexer.Position(17, 18, 1)),
       #(lexer.SlashSlash, lexer.Position(19, 20, 1)),
-      #(lexer.Int(<<"6">>), lexer.Position(22, 23, 1)),
+      #(lexer.Int("6"), lexer.Position(22, 23, 1)),
       #(lexer.RightParen, lexer.Position(23, 24, 1)),
       #(lexer.Percent, lexer.Position(25, 26, 1)),
       #(lexer.LeftParen, lexer.Position(27, 28, 1)),
-      #(lexer.Int(<<"7">>), lexer.Position(28, 29, 1)),
+      #(lexer.Int("7"), lexer.Position(28, 29, 1)),
       #(lexer.Circumflex, lexer.Position(30, 31, 1)),
-      #(lexer.Int(<<"2">>), lexer.Position(32, 33, 1)),
+      #(lexer.Int("2"), lexer.Position(32, 33, 1)),
       #(lexer.RightParen, lexer.Position(33, 34, 1)),
       #(lexer.EndOfFile, lexer.Position(34, 35, 1)),
     ]
@@ -1035,35 +1035,35 @@ print(fib(8))
       #(lexer.If, lexer.Position(16, 1, 2)),
       #(lexer.Identifier("n"), lexer.Position(19, 4, 2)),
       #(lexer.EqualEqual, lexer.Position(21, 6, 2)),
-      #(lexer.Int(<<"1">>), lexer.Position(24, 9, 2)),
+      #(lexer.Int("1"), lexer.Position(24, 9, 2)),
       #(lexer.Or, lexer.Position(26, 11, 2)),
       #(lexer.Identifier("n"), lexer.Position(29, 14, 2)),
       #(lexer.EqualEqual, lexer.Position(31, 16, 2)),
-      #(lexer.Int(<<"2">>), lexer.Position(34, 19, 2)),
+      #(lexer.Int("2"), lexer.Position(34, 19, 2)),
       #(lexer.Then, lexer.Position(36, 21, 2)),
       #(lexer.Return, lexer.Position(43, 3, 3)),
-      #(lexer.Int(<<"1">>), lexer.Position(50, 10, 3)),
+      #(lexer.Int("1"), lexer.Position(50, 10, 3)),
       #(lexer.Else, lexer.Position(52, 1, 4)),
       #(lexer.Return, lexer.Position(59, 3, 5)),
       #(lexer.Identifier("fib"), lexer.Position(66, 10, 5)),
       #(lexer.LeftParen, lexer.Position(69, 13, 5)),
       #(lexer.Identifier("n"), lexer.Position(70, 14, 5)),
       #(lexer.Minus, lexer.Position(71, 15, 5)),
-      #(lexer.Int(<<"2">>), lexer.Position(72, 16, 5)),
+      #(lexer.Int("2"), lexer.Position(72, 16, 5)),
       #(lexer.RightParen, lexer.Position(73, 17, 5)),
       #(lexer.Plus, lexer.Position(75, 19, 5)),
       #(lexer.Identifier("fib"), lexer.Position(77, 21, 5)),
       #(lexer.LeftParen, lexer.Position(80, 24, 5)),
       #(lexer.Identifier("n"), lexer.Position(81, 25, 5)),
       #(lexer.Minus, lexer.Position(82, 26, 5)),
-      #(lexer.Int(<<"1">>), lexer.Position(83, 27, 5)),
+      #(lexer.Int("1"), lexer.Position(83, 27, 5)),
       #(lexer.RightParen, lexer.Position(84, 28, 5)),
       #(lexer.End, lexer.Position(86, 1, 6)),
       #(lexer.Identifier("print"), lexer.Position(91, 1, 8)),
       #(lexer.LeftParen, lexer.Position(96, 6, 8)),
       #(lexer.Identifier("fib"), lexer.Position(97, 7, 8)),
       #(lexer.LeftParen, lexer.Position(100, 10, 8)),
-      #(lexer.Int(<<"8">>), lexer.Position(101, 11, 8)),
+      #(lexer.Int("8"), lexer.Position(101, 11, 8)),
       #(lexer.RightParen, lexer.Position(102, 12, 8)),
       #(lexer.RightParen, lexer.Position(103, 13, 8)),
       #(lexer.EndOfFile, lexer.Position(105, 1, 9)),
@@ -1079,21 +1079,21 @@ pub fn lex_tables_test() {
   assert tokens
     == [
       #(lexer.LeftBrace, lexer.Position(0, 1, 1)),
-      #(lexer.Int(<<"1">>), lexer.Position(2, 3, 1)),
+      #(lexer.Int("1"), lexer.Position(2, 3, 1)),
       #(lexer.Equal, lexer.Position(4, 5, 1)),
       #(lexer.String(<<"a">>), lexer.Position(6, 7, 1)),
       #(lexer.Comma, lexer.Position(9, 10, 1)),
-      #(lexer.Int(<<"2">>), lexer.Position(11, 12, 1)),
+      #(lexer.Int("2"), lexer.Position(11, 12, 1)),
       #(lexer.Equal, lexer.Position(13, 14, 1)),
       #(lexer.String(<<"b">>), lexer.Position(15, 16, 1)),
       #(lexer.Comma, lexer.Position(18, 19, 1)),
-      #(lexer.Int(<<"3">>), lexer.Position(20, 21, 1)),
+      #(lexer.Int("3"), lexer.Position(20, 21, 1)),
       #(lexer.Equal, lexer.Position(22, 23, 1)),
       #(lexer.LeftBrace, lexer.Position(24, 25, 1)),
-      #(lexer.Int(<<"1">>), lexer.Position(26, 27, 1)),
+      #(lexer.Int("1"), lexer.Position(26, 27, 1)),
       #(lexer.Equal, lexer.Position(28, 29, 1)),
       #(lexer.LeftBrace, lexer.Position(30, 31, 1)),
-      #(lexer.Int(<<"1">>), lexer.Position(32, 33, 1)),
+      #(lexer.Int("1"), lexer.Position(32, 33, 1)),
       #(lexer.Equal, lexer.Position(34, 35, 1)),
       #(lexer.String(<<"c">>), lexer.Position(36, 37, 1)),
       #(lexer.RightBrace, lexer.Position(40, 41, 1)),
@@ -1110,7 +1110,7 @@ pub fn lex_tables_test() {
   assert tokens
     == [
       #(lexer.LeftBrace, lexer.Position(0, 1, 1)),
-      #(lexer.Int(<<"1">>), lexer.Position(2, 3, 1)),
+      #(lexer.Int("1"), lexer.Position(2, 3, 1)),
       #(lexer.Equal, lexer.Position(4, 5, 1)),
       #(lexer.String(<<"a">>), lexer.Position(6, 7, 1)),
       #(lexer.Comma, lexer.Position(9, 10, 1)),
@@ -1118,7 +1118,7 @@ pub fn lex_tables_test() {
       #(lexer.String(<<"key">>), lexer.Position(12, 13, 1)),
       #(lexer.RightSquare, lexer.Position(17, 18, 1)),
       #(lexer.Equal, lexer.Position(19, 20, 1)),
-      #(lexer.Int(<<"1">>), lexer.Position(21, 22, 1)),
+      #(lexer.Int("1"), lexer.Position(21, 22, 1)),
       #(lexer.RightBrace, lexer.Position(23, 24, 1)),
       #(lexer.EndOfFile, lexer.Position(24, 25, 1)),
     ]

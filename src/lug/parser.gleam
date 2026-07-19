@@ -1,5 +1,6 @@
 //// Parser for Lua 5.4
 
+import gleam/bit_array
 import gleam/list
 import gleam/option
 import gleam/result
@@ -93,7 +94,7 @@ pub type Expression {
   BooleanTrue(location: Span)
   BooleanFalse(location: Span)
   Numeral(location: Span, value: String)
-  LiteralString(location: Span, value: String)
+  LiteralString(location: Span, value: BitArray)
   Variable(location: Span, name: String)
   Vararg(location: Span)
   Function(location: Span, parameters: List(Parameter), body: Block)
@@ -601,7 +602,7 @@ fn do_expression(
 
 fn prefix_expression(tokens: Tokens) -> Result(#(Expression, Tokens), Error) {
   case tokens {
-    [#(lexer.Null, start), ..tokens] ->
+    [#(lexer.Nil, start), ..tokens] ->
       Ok(#(BooleanNil(token_span(start, lexer.Nil)), tokens))
 
     [#(lexer.BTrue, start), ..tokens] ->
@@ -620,7 +621,7 @@ fn prefix_expression(tokens: Tokens) -> Result(#(Expression, Tokens), Error) {
 
     [#(lexer.String(str), start), ..tokens]
     | [#(lexer.LongString(str), start), ..tokens] ->
-      Ok(#(LiteralString(string_span(start, str), str), tokens))
+      Ok(#(LiteralString(bits_span(start, str), str), tokens))
 
     [#(lexer.DotDotDot, start), ..tokens] ->
       Ok(#(Vararg(token_span(start, lexer.DotDotDot)), tokens))
@@ -734,7 +735,7 @@ fn bind_expression(
 
     [#(lexer.String(str), start), ..tokens]
     | [#(lexer.LongString(str), start), ..tokens] -> {
-      let str = LiteralString(string_span(start, str), str)
+      let str = LiteralString(bits_span(start, str), str)
 
       let span = Span(prefix.location.start, str.location.end)
       let expr = Call(span, prefix, [str])
@@ -775,7 +776,11 @@ fn bind_expression(
     [#(lexer.Dot, _), ..tokens] -> {
       use #(name, name_start, tokens) <- result.try(identifier(tokens))
 
-      let str = LiteralString(string_span(name_start, name), name)
+      let str =
+        LiteralString(
+          string_span(name_start, name),
+          bit_array.from_string(name),
+        )
 
       let span = Span(prefix.location.start, str.location.end)
       let expr = Index(span, prefix, str)
@@ -806,7 +811,7 @@ fn bind_expression(
 
         [#(lexer.String(str), start), ..tokens]
         | [#(lexer.LongString(str), start), ..tokens] -> {
-          let str = LiteralString(string_span(start, str), str)
+          let str = LiteralString(bits_span(start, str), str)
 
           let span = Span(prefix.location.start, str.location.end)
           let expr = Call(span, method, [prefix, str])
@@ -913,7 +918,11 @@ fn table_field(
         [#(lexer.Equal, _), ..tokens] -> {
           use #(value, tokens) <- result.try(expression(tokens))
 
-          let str = LiteralString(string_span(identifier_start, name), name)
+          let str =
+            LiteralString(
+              string_span(identifier_start, name),
+              bit_array.from_string(name),
+            )
 
           let span = Span(start, value.location.end)
           Ok(#(RecordField(span, str, value), tokens))
@@ -1104,7 +1113,7 @@ fn do_comma_delimited_until(
 }
 
 fn token_offset(start: lexer.Position, token: lexer.Token) -> lexer.Position {
-  let to_add = lexer.token_to_string(token) |> string.byte_size
+  let to_add = lexer.token_to_string(token) |> bit_array.byte_size
 
   lexer.Position(
     offset: to_add + start.offset,
@@ -1127,6 +1136,20 @@ fn string_offset(start: lexer.Position, string: String) -> lexer.Position {
   )
 }
 
+fn bits_offset(start: lexer.Position, string: BitArray) -> lexer.Position {
+  let to_add = bit_array.byte_size(string)
+
+  lexer.Position(
+    offset: to_add + start.offset,
+    column: to_add + start.column,
+    line: start.line,
+  )
+}
+
 fn string_span(start: lexer.Position, string: String) -> Span {
   Span(start, string_offset(start, string))
+}
+
+fn bits_span(start: lexer.Position, string: BitArray) -> Span {
+  Span(start, bits_offset(start, string))
 }
