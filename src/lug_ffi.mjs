@@ -1,35 +1,47 @@
-// borrowed from https://github.com/DanielleMaywood/glexer
-export function slice_bytes(string, start, size) {
-  return string.slice(start, start + size);
-}
+import { bitArraySlice } from "./gleam.mjs";
 
 // borrowed from https://github.com/DanielleMaywood/glexer
-export function drop_byte(string) {
-  return string.slice(1);
+export function drop_byte(bits) {
+    return bitArraySlice(bits, 8);
 }
 
 // borrowed from https://github.com/lpil/splitter
 export function compile_binary_pattern(patterns) {
-  let pattern = "";
-  let cursor = patterns;
-  while (cursor.tail) {
-    if (pattern !== "") pattern += "|";
-    pattern += escapeRegExp(cursor.head);
-    cursor = cursor.tail;
-  }
-  return new RegExp(pattern);
+    const encoder = new TextEncoder();
+    const compiled = [];
+    let cursor = patterns;
+    while (cursor.tail) {
+        compiled.push(encoder.encode(cursor.head));
+        cursor = cursor.tail;
+    }
+    return compiled;
 }
 
 // borrowed from https://github.com/lpil/splitter
-export function split_before(splitter, string) {
-  const match = string.match(splitter);
+export function split_before(patterns, bits) {
+    for (let index = 0; index < bits.byteSize; index++) {
+        for (const pattern of patterns) {
+            if (matchesAt(bits, pattern, index)) {
+                const splitPoint = index * 8;
+                return [
+                    bitArraySlice(bits, 0, splitPoint),
+                    bitArraySlice(bits, splitPoint),
+                ];
+            }
+        }
+    }
 
-  if (!match) return [string, ""]; // No delimiter found
+    return [bits, bitArraySlice(bits, bits.bitSize)];
+}
 
-  const split_point = match.index;
-  return [string.slice(0, split_point), string.slice(split_point)];
+function matchesAt(bits, pattern, index) {
+    if (index + pattern.length > bits.byteSize) return false;
+    for (let offset = 0; offset < pattern.length; offset++) {
+        if (bits.byteAt(index + offset) !== pattern[offset]) return false;
+    }
+    return true;
 }
 
 export function nil() {
-  return undefined
+    return undefined;
 }

@@ -551,7 +551,8 @@ fn lex_whitespace(lexer: Lexer, position: Position, slice: Int) {
     <<" ", rest:bits>> | <<"\t", rest:bits>> ->
       lex_whitespace(advance(lexer, rest, 1), position, slice + 1)
     _ -> {
-      let content = slice_bytes(lexer.original, position.offset, slice)
+      let assert Ok(content) =
+        bit_array.slice(lexer.original, position.offset, slice)
       #(lexer, content)
     }
   }
@@ -572,8 +573,8 @@ fn lex_long_comment(lexer: Lexer, position: Position, slice: Int, depth: Int) {
     <<"]", rest:bits>> ->
       case find_closing_brace(rest, 0) {
         option.Some(#(rest, found)) if found == depth -> {
-          let content =
-            slice_bytes(lexer.original, position.offset + depth + 4, slice)
+          let assert Ok(content) =
+            bit_array.slice(lexer.original, position.offset + depth + 4, slice)
           #(advance(lexer, rest, depth + 2), #(LongComment(content), position))
         }
 
@@ -591,8 +592,8 @@ fn lex_long_comment(lexer: Lexer, position: Position, slice: Int, depth: Int) {
       |> lex_long_comment(position, slice + 1, depth)
 
     <<>> -> {
-      let content =
-        slice_bytes(lexer.original, position.offset + depth + 4, slice)
+      let assert Ok(content) =
+        bit_array.slice(lexer.original, position.offset + depth + 4, slice)
       #(
         advance(lexer, lexer.source, 1),
         #(UnterminatedLongComment(content), position),
@@ -657,7 +658,8 @@ fn lex_string(
       }
 
     <<>> -> {
-      let content = slice_bytes(lexer.original, position.offset + 1, slice)
+      let assert Ok(content) =
+        bit_array.slice(lexer.original, position.offset + 1, slice)
       #(lexer, #(UnterminatedString(content), position))
     }
 
@@ -684,8 +686,8 @@ fn lex_long_string(lexer: Lexer, position: Position, slice: Int, depth: Int) {
     <<"]", rest:bits>> ->
       case find_closing_brace(rest, 0) {
         option.Some(#(rest, found)) if found == depth -> {
-          let content =
-            slice_bytes(lexer.original, position.offset + depth + 2, slice)
+          let assert Ok(content) =
+            bit_array.slice(lexer.original, position.offset + depth + 2, slice)
 
           #(advance(lexer, rest, depth + 2), #(LongString(content), position))
         }
@@ -704,8 +706,8 @@ fn lex_long_string(lexer: Lexer, position: Position, slice: Int, depth: Int) {
       |> lex_long_string(position, slice + 1, depth)
 
     <<>> -> {
-      let content =
-        slice_bytes(lexer.original, position.offset + depth + 2, slice)
+      let assert Ok(content) =
+        bit_array.slice(lexer.original, position.offset + depth + 2, slice)
       #(
         advance(lexer, lexer.source, 1),
         #(UnterminatedLongString(content), position),
@@ -1337,7 +1339,7 @@ pub fn token_to_string(token: Token) -> BitArray {
 type BinaryPattern
 
 @external(erlang, "lug_ffi", "compile_binary_pattern")
-@external(javascript, "../lug_ffi.mjs", "compile_binary_patterns")
+@external(javascript, "../lug_ffi.mjs", "compile_binary_pattern")
 fn compile_binary_pattern(patterns: List(String)) -> BinaryPattern
 
 @external(erlang, "lug_ffi", "split_before")
@@ -1353,11 +1355,6 @@ fn split_until_new_line(
 ) -> #(BitArray, BitArray) {
   split_before(lexer.new_lines, string)
 }
-
-@deprecated("Use bit_array.slice")
-@external(erlang, "binary", "part")
-@external(javascript, "../lug_ffi.mjs", "slice_bytes")
-fn slice_bytes(string: BitArray, from byte: Int, sized bytes: Int) -> BitArray
 
 @external(erlang, "lug_ffi", "drop_byte")
 @external(javascript, "../lug_ffi.mjs", "drop_byte")

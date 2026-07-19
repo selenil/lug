@@ -31,6 +31,7 @@
               gleam
               beamPackages.erlang
               self.formatter.${system}
+              nodejs
             ];
           };
         }
