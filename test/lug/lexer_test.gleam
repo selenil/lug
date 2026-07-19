@@ -8,7 +8,7 @@ pub fn lex_with_shebang_test() {
 
   assert tokens
     == [
-      #(lexer.Identifier(<<"print">>), lexer.Position(0, 1, 1)),
+      #(lexer.Identifier("print"), lexer.Position(0, 1, 1)),
       #(lexer.LeftParen, lexer.Position(5, 6, 1)),
       #(lexer.String(<<"Hello, world">>), lexer.Position(6, 7, 1)),
       #(lexer.RightParen, lexer.Position(20, 21, 1)),
@@ -24,7 +24,7 @@ pub fn lex_with_starting_hash_test() {
 
   assert tokens
     == [
-      #(lexer.Identifier(<<"print">>), lexer.Position(0, 1, 1)),
+      #(lexer.Identifier("print"), lexer.Position(0, 1, 1)),
       #(lexer.LeftParen, lexer.Position(5, 6, 1)),
       #(lexer.String(<<"Hello, world">>), lexer.Position(6, 7, 1)),
       #(lexer.RightParen, lexer.Position(20, 21, 1)),
@@ -40,7 +40,7 @@ pub fn lex_identifier_lowercase_test() {
 
   assert tokens
     == [
-      #(lexer.Identifier(<<"variable_name1">>), lexer.Position(0, 1, 1)),
+      #(lexer.Identifier("variable_name1"), lexer.Position(0, 1, 1)),
       #(lexer.EndOfFile, lexer.Position(14, 15, 1)),
     ]
 }
@@ -53,7 +53,7 @@ pub fn lex_indentifier_uppercase_test() {
 
   assert tokens
     == [
-      #(lexer.Identifier(<<"VariableName1">>), lexer.Position(0, 1, 1)),
+      #(lexer.Identifier("VariableName1"), lexer.Position(0, 1, 1)),
       #(lexer.EndOfFile, lexer.Position(13, 14, 1)),
     ]
 
@@ -64,7 +64,7 @@ pub fn lex_indentifier_uppercase_test() {
 
   assert tokens
     == [
-      #(lexer.Identifier(<<"variableName1">>), lexer.Position(0, 1, 1)),
+      #(lexer.Identifier("variableName1"), lexer.Position(0, 1, 1)),
       #(lexer.EndOfFile, lexer.Position(13, 14, 1)),
     ]
 }
@@ -77,7 +77,7 @@ pub fn lex_identifier_starting_with_an_underscore_test() {
 
   assert tokens
     == [
-      #(lexer.Identifier(<<"_variable_name">>), lexer.Position(0, 1, 1)),
+      #(lexer.Identifier("_variable_name"), lexer.Position(0, 1, 1)),
       #(lexer.EndOfFile, lexer.Position(14, 15, 1)),
     ]
 
@@ -88,7 +88,7 @@ pub fn lex_identifier_starting_with_an_underscore_test() {
 
   assert tokens
     == [
-      #(lexer.Identifier(<<"_VariableName">>), lexer.Position(0, 1, 1)),
+      #(lexer.Identifier("_VariableName"), lexer.Position(0, 1, 1)),
       #(lexer.EndOfFile, lexer.Position(13, 14, 1)),
     ]
 }
@@ -101,12 +101,12 @@ pub fn lex_identifier_with_keyword_prefix_test() {
 
   assert tokens
     == [
-      #(lexer.Identifier(<<"ending">>), lexer.Position(0, 1, 1)),
+      #(lexer.Identifier("ending"), lexer.Position(0, 1, 1)),
       #(lexer.End, lexer.Position(7, 8, 1)),
-      #(lexer.Identifier(<<"repeatuntil">>), lexer.Position(11, 12, 1)),
+      #(lexer.Identifier("repeatuntil"), lexer.Position(11, 12, 1)),
       #(lexer.Repeat, lexer.Position(23, 24, 1)),
       #(lexer.Until, lexer.Position(30, 31, 1)),
-      #(lexer.Identifier(<<"Function">>), lexer.Position(36, 37, 1)),
+      #(lexer.Identifier("Function"), lexer.Position(36, 37, 1)),
       #(lexer.EndOfFile, lexer.Position(44, 45, 1)),
     ]
 }
@@ -589,7 +589,7 @@ pub fn lex_invalid_hexadecimal_number_test() {
   assert tokens
     == [
       #(lexer.Int(<<"0xa">>), lexer.Position(0, 1, 1)),
-      #(lexer.Identifier(<<"gh">>), lexer.Position(3, 4, 1)),
+      #(lexer.Identifier("gh"), lexer.Position(3, 4, 1)),
       #(lexer.EndOfFile, lexer.Position(5, 6, 1)),
     ]
 }
@@ -614,7 +614,7 @@ pub fn lex_single_comment_test() {
   assert tokens
     == [
       #(lexer.Local, lexer.Position(0, 1, 1)),
-      #(lexer.Identifier(<<"a">>), lexer.Position(6, 7, 1)),
+      #(lexer.Identifier("a"), lexer.Position(6, 7, 1)),
       #(lexer.Equal, lexer.Position(8, 9, 1)),
       #(lexer.String(<<"b">>), lexer.Position(10, 11, 1)),
       #(lexer.Comment(<<" a comment">>), lexer.Position(14, 15, 1)),
@@ -631,7 +631,7 @@ pub fn lex_single_comment_starting_with_brace_test() {
   assert tokens
     == [
       #(lexer.Local, lexer.Position(0, 1, 1)),
-      #(lexer.Identifier(<<"a">>), lexer.Position(6, 7, 1)),
+      #(lexer.Identifier("a"), lexer.Position(6, 7, 1)),
       #(lexer.Equal, lexer.Position(8, 9, 1)),
       #(lexer.String(<<"b">>), lexer.Position(10, 11, 1)),
       #(lexer.Comment(<<"[ a comment">>), lexer.Position(14, 15, 1)),
@@ -904,7 +904,7 @@ pub fn lex_whitespaces_test() {
     == [
       #(lexer.Local, lexer.Position(0, 1, 1)),
       #(lexer.Space(<<" ">>), lexer.Position(5, 6, 1)),
-      #(lexer.Identifier(<<"a">>), lexer.Position(6, 7, 1)),
+      #(lexer.Identifier("a"), lexer.Position(6, 7, 1)),
       #(lexer.Space(<<" ">>), lexer.Position(7, 8, 1)),
       #(lexer.Equal, lexer.Position(8, 9, 1)),
       #(lexer.Space(<<"  ">>), lexer.Position(9, 10, 1)),
@@ -945,39 +945,39 @@ end",
   assert tokens
     == [
       #(lexer.Function, lexer.Position(0, 1, 1)),
-      #(lexer.Identifier(<<"map">>), lexer.Position(9, 10, 1)),
+      #(lexer.Identifier("map"), lexer.Position(9, 10, 1)),
       #(lexer.LeftParen, lexer.Position(12, 13, 1)),
-      #(lexer.Identifier(<<"tbl">>), lexer.Position(13, 14, 1)),
+      #(lexer.Identifier("tbl"), lexer.Position(13, 14, 1)),
       #(lexer.Comma, lexer.Position(16, 17, 1)),
-      #(lexer.Identifier(<<"cbl">>), lexer.Position(18, 19, 1)),
+      #(lexer.Identifier("cbl"), lexer.Position(18, 19, 1)),
       #(lexer.RightParen, lexer.Position(21, 22, 1)),
       #(lexer.Local, lexer.Position(25, 3, 2)),
-      #(lexer.Identifier(<<"new">>), lexer.Position(31, 9, 2)),
+      #(lexer.Identifier("new"), lexer.Position(31, 9, 2)),
       #(lexer.Equal, lexer.Position(35, 13, 2)),
       #(lexer.LeftBrace, lexer.Position(37, 15, 2)),
       #(lexer.RightBrace, lexer.Position(38, 16, 2)),
       #(lexer.For, lexer.Position(42, 3, 3)),
-      #(lexer.Identifier(<<"i">>), lexer.Position(46, 7, 3)),
+      #(lexer.Identifier("i"), lexer.Position(46, 7, 3)),
       #(lexer.Comma, lexer.Position(47, 8, 3)),
-      #(lexer.Identifier(<<"el">>), lexer.Position(49, 10, 3)),
+      #(lexer.Identifier("el"), lexer.Position(49, 10, 3)),
       #(lexer.In, lexer.Position(52, 13, 3)),
-      #(lexer.Identifier(<<"ipairs">>), lexer.Position(55, 16, 3)),
+      #(lexer.Identifier("ipairs"), lexer.Position(55, 16, 3)),
       #(lexer.LeftParen, lexer.Position(61, 22, 3)),
-      #(lexer.Identifier(<<"tbl">>), lexer.Position(62, 23, 3)),
+      #(lexer.Identifier("tbl"), lexer.Position(62, 23, 3)),
       #(lexer.RightParen, lexer.Position(65, 26, 3)),
       #(lexer.Do, lexer.Position(67, 28, 3)),
-      #(lexer.Identifier(<<"new">>), lexer.Position(74, 5, 4)),
+      #(lexer.Identifier("new"), lexer.Position(74, 5, 4)),
       #(lexer.LeftSquare, lexer.Position(77, 8, 4)),
-      #(lexer.Identifier(<<"i">>), lexer.Position(78, 9, 4)),
+      #(lexer.Identifier("i"), lexer.Position(78, 9, 4)),
       #(lexer.RightSquare, lexer.Position(79, 10, 4)),
       #(lexer.Equal, lexer.Position(81, 12, 4)),
-      #(lexer.Identifier(<<"cbl">>), lexer.Position(83, 14, 4)),
+      #(lexer.Identifier("cbl"), lexer.Position(83, 14, 4)),
       #(lexer.LeftParen, lexer.Position(86, 17, 4)),
-      #(lexer.Identifier(<<"el">>), lexer.Position(87, 18, 4)),
+      #(lexer.Identifier("el"), lexer.Position(87, 18, 4)),
       #(lexer.RightParen, lexer.Position(89, 20, 4)),
       #(lexer.End, lexer.Position(93, 3, 5)),
       #(lexer.Return, lexer.Position(100, 3, 7)),
-      #(lexer.Identifier(<<"new">>), lexer.Position(107, 10, 7)),
+      #(lexer.Identifier("new"), lexer.Position(107, 10, 7)),
       #(lexer.End, lexer.Position(111, 1, 8)),
       #(lexer.EndOfFile, lexer.Position(114, 4, 8)),
     ]
@@ -991,19 +991,19 @@ pub fn lex_function_calls() {
 
   assert tokens
     == [
-      #(lexer.Identifier(<<"fun">>), lexer.Position(0, 1, 1)),
+      #(lexer.Identifier("fun"), lexer.Position(0, 1, 1)),
       #(lexer.LeftParen, lexer.Position(3, 4, 1)),
-      #(lexer.Identifier(<<"a">>), lexer.Position(4, 5, 1)),
+      #(lexer.Identifier("a"), lexer.Position(4, 5, 1)),
       #(lexer.Comma, lexer.Position(5, 6, 1)),
-      #(lexer.Identifier(<<"b">>), lexer.Position(7, 8, 1)),
+      #(lexer.Identifier("b"), lexer.Position(7, 8, 1)),
       #(lexer.RightParen, lexer.Position(8, 9, 1)),
-      #(lexer.Identifier(<<"tbl">>), lexer.Position(10, 11, 1)),
+      #(lexer.Identifier("tbl"), lexer.Position(10, 11, 1)),
       #(lexer.Colon, lexer.Position(11, 12, 1)),
-      #(lexer.Identifier(<<"fun">>), lexer.Position(12, 13, 1)),
+      #(lexer.Identifier("fun"), lexer.Position(12, 13, 1)),
       #(lexer.LeftParen, lexer.Position(15, 16, 1)),
-      #(lexer.Identifier(<<"a">>), lexer.Position(16, 17, 1)),
+      #(lexer.Identifier("a"), lexer.Position(16, 17, 1)),
       #(lexer.Comma, lexer.Position(17, 18, 1)),
-      #(lexer.Identifier(<<"b">>), lexer.Position(19, 20, 1)),
+      #(lexer.Identifier("b"), lexer.Position(19, 20, 1)),
       #(lexer.RightParen, lexer.Position(21, 22, 1)),
       #(lexer.EndOfFile, lexer.Position(22, 23, 1)),
     ]
@@ -1028,16 +1028,16 @@ print(fib(8))
   assert tokens
     == [
       #(lexer.Function, lexer.Position(0, 1, 1)),
-      #(lexer.Identifier(<<"fib">>), lexer.Position(9, 10, 1)),
+      #(lexer.Identifier("fib"), lexer.Position(9, 10, 1)),
       #(lexer.LeftParen, lexer.Position(12, 13, 1)),
-      #(lexer.Identifier(<<"n">>), lexer.Position(13, 14, 1)),
+      #(lexer.Identifier("n"), lexer.Position(13, 14, 1)),
       #(lexer.RightParen, lexer.Position(14, 15, 1)),
       #(lexer.If, lexer.Position(16, 1, 2)),
-      #(lexer.Identifier(<<"n">>), lexer.Position(19, 4, 2)),
+      #(lexer.Identifier("n"), lexer.Position(19, 4, 2)),
       #(lexer.EqualEqual, lexer.Position(21, 6, 2)),
       #(lexer.Int(<<"1">>), lexer.Position(24, 9, 2)),
       #(lexer.Or, lexer.Position(26, 11, 2)),
-      #(lexer.Identifier(<<"n">>), lexer.Position(29, 14, 2)),
+      #(lexer.Identifier("n"), lexer.Position(29, 14, 2)),
       #(lexer.EqualEqual, lexer.Position(31, 16, 2)),
       #(lexer.Int(<<"2">>), lexer.Position(34, 19, 2)),
       #(lexer.Then, lexer.Position(36, 21, 2)),
@@ -1045,23 +1045,23 @@ print(fib(8))
       #(lexer.Int(<<"1">>), lexer.Position(50, 10, 3)),
       #(lexer.Else, lexer.Position(52, 1, 4)),
       #(lexer.Return, lexer.Position(59, 3, 5)),
-      #(lexer.Identifier(<<"fib">>), lexer.Position(66, 10, 5)),
+      #(lexer.Identifier("fib"), lexer.Position(66, 10, 5)),
       #(lexer.LeftParen, lexer.Position(69, 13, 5)),
-      #(lexer.Identifier(<<"n">>), lexer.Position(70, 14, 5)),
+      #(lexer.Identifier("n"), lexer.Position(70, 14, 5)),
       #(lexer.Minus, lexer.Position(71, 15, 5)),
       #(lexer.Int(<<"2">>), lexer.Position(72, 16, 5)),
       #(lexer.RightParen, lexer.Position(73, 17, 5)),
       #(lexer.Plus, lexer.Position(75, 19, 5)),
-      #(lexer.Identifier(<<"fib">>), lexer.Position(77, 21, 5)),
+      #(lexer.Identifier("fib"), lexer.Position(77, 21, 5)),
       #(lexer.LeftParen, lexer.Position(80, 24, 5)),
-      #(lexer.Identifier(<<"n">>), lexer.Position(81, 25, 5)),
+      #(lexer.Identifier("n"), lexer.Position(81, 25, 5)),
       #(lexer.Minus, lexer.Position(82, 26, 5)),
       #(lexer.Int(<<"1">>), lexer.Position(83, 27, 5)),
       #(lexer.RightParen, lexer.Position(84, 28, 5)),
       #(lexer.End, lexer.Position(86, 1, 6)),
-      #(lexer.Identifier(<<"print">>), lexer.Position(91, 1, 8)),
+      #(lexer.Identifier("print"), lexer.Position(91, 1, 8)),
       #(lexer.LeftParen, lexer.Position(96, 6, 8)),
-      #(lexer.Identifier(<<"fib">>), lexer.Position(97, 7, 8)),
+      #(lexer.Identifier("fib"), lexer.Position(97, 7, 8)),
       #(lexer.LeftParen, lexer.Position(100, 10, 8)),
       #(lexer.Int(<<"8">>), lexer.Position(101, 11, 8)),
       #(lexer.RightParen, lexer.Position(102, 12, 8)),

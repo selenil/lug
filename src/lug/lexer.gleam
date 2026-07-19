@@ -23,7 +23,7 @@ pub type Position {
 
 pub type Token {
   // literals
-  Identifier(BitArray)
+  Identifier(String)
   String(BitArray)
   LongString(BitArray)
   Int(BitArray)
@@ -300,28 +300,28 @@ fn lex_loop(
         |> lex_lowercase_word(pos.offset, 1)
 
       let tok = case word {
-        <<"and">> -> And
-        <<"break">> -> Break
-        <<"do">> -> Do
-        <<"else">> -> Else
-        <<"elseif">> -> Elseif
-        <<"end">> -> End
-        <<"false">> -> BFalse
-        <<"for">> -> For
-        <<"function">> -> Function
-        <<"goto">> -> Goto
-        <<"if">> -> If
-        <<"in">> -> In
-        <<"local">> -> Local
-        <<"nil">> -> Nil
-        <<"not">> -> Not
-        <<"or">> -> Or
-        <<"repeat">> -> Repeat
-        <<"return">> -> Return
-        <<"then">> -> Then
-        <<"true">> -> BTrue
-        <<"until">> -> Until
-        <<"while">> -> While
+        "and" -> And
+        "break" -> Break
+        "do" -> Do
+        "else" -> Else
+        "elseif" -> Elseif
+        "end" -> End
+        "false" -> BFalse
+        "for" -> For
+        "function" -> Function
+        "goto" -> Goto
+        "if" -> If
+        "in" -> In
+        "local" -> Local
+        "nil" -> Nil
+        "not" -> Not
+        "or" -> Or
+        "repeat" -> Repeat
+        "return" -> Return
+        "then" -> Then
+        "true" -> BTrue
+        "until" -> Until
+        "while" -> While
         identifier -> Identifier(identifier)
       }
 
@@ -744,7 +744,7 @@ fn lex_lowercase_word(
   lexer: Lexer,
   start: Int,
   slice: Int,
-) -> #(Lexer, BitArray) {
+) -> #(Lexer, String) {
   case lexer.source {
     <<"a", rest:bits>>
     | <<"b", rest:bits>>
@@ -812,7 +812,8 @@ fn lex_lowercase_word(
       advance(lexer, rest, 1)
       |> lex_lowercase_word(start, slice + 1)
     _ -> {
-      let name = slice_bytes(lexer.original, start, slice)
+      let assert Ok(name) = bit_array.slice(lexer.original, start, slice)
+      let assert Ok(name) = bit_array.to_string(name)
       #(lexer, name)
     }
   }
@@ -822,7 +823,7 @@ fn lex_uppercase_word(
   lexer: Lexer,
   start: Int,
   slice: Int,
-) -> #(Lexer, BitArray) {
+) -> #(Lexer, String) {
   case lexer.source {
     <<"a", rest:bits>>
     | <<"b", rest:bits>>
@@ -890,17 +891,14 @@ fn lex_uppercase_word(
       advance(lexer, rest, 1)
       |> lex_uppercase_word(start, slice + 1)
     _ -> {
-      let name = slice_bytes(lexer.original, start, slice)
+      let assert Ok(name) = bit_array.slice(lexer.original, start, slice)
+      let assert Ok(name) = bit_array.to_string(name)
       #(lexer, name)
     }
   }
 }
 
-fn lex_discard_name(
-  lexer: Lexer,
-  start: Int,
-  slice: Int,
-) -> #(Lexer, BitArray) {
+fn lex_discard_name(lexer: Lexer, start: Int, slice: Int) -> #(Lexer, String) {
   case lexer.source {
     <<"a", rest:bits>>
     | <<"b", rest:bits>>
@@ -967,7 +965,8 @@ fn lex_discard_name(
     | <<"_", rest:bits>> ->
       advance(lexer, rest, 1) |> lex_discard_name(start, slice + 1)
     _ -> {
-      let name = slice_bytes(lexer.original, start, slice)
+      let assert Ok(name) = bit_array.slice(lexer.original, start, slice)
+      let assert Ok(name) = bit_array.to_string(name)
       #(lexer, name)
     }
   }
@@ -1240,7 +1239,7 @@ fn token(lexer: Lexer, token: Token) -> #(Token, Position) {
 pub fn token_to_string(token: Token) -> BitArray {
   case token {
     // literals
-    Identifier(str) -> str
+    Identifier(str) -> bit_array.from_string(str)
     String(str) -> str
     LongString(str) -> <<"[[", str:bits, "]]">>
     Int(str) -> str
