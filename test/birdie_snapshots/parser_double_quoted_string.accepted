@@ -1,0 +1,40 @@
+---
+version: 2.0.0
+title: parser__double_quoted_string
+---
+a = "string"
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(12, 13, 1),
+  ),
+  [
+    Assignment(
+      Span(
+        Position(0, 1, 1),
+        Position(10, 11, 1),
+      ),
+      [
+        Variable(
+          Span(
+            Position(0, 1, 1),
+            Position(1, 2, 1),
+          ),
+          "a",
+        ),
+      ],
+      [
+        LiteralString(
+          Span(
+            Position(4, 5, 1),
+            Position(10, 11, 1),
+          ),
+          "string",
+        ),
+      ],
+    ),
+  ],
+)

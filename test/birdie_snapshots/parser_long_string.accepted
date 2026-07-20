@@ -1,0 +1,48 @@
+---
+version: 2.0.0
+title: parser__long_string
+---
+a = [[
+a long string
+with more text and
+multiple lines
+]]
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(57, 3, 5),
+  ),
+  [
+    Assignment(
+      Span(
+        Position(0, 1, 1),
+        Position(53, 54, 1),
+      ),
+      [
+        Variable(
+          Span(
+            Position(0, 1, 1),
+            Position(1, 2, 1),
+          ),
+          "a",
+        ),
+      ],
+      [
+        LiteralString(
+          Span(
+            Position(4, 5, 1),
+            Position(53, 54, 1),
+          ),
+          "
+a long string
+with more text and
+multiple lines
+",
+        ),
+      ],
+    ),
+  ],
+)

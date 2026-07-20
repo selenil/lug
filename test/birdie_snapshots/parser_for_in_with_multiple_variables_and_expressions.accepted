@@ -1,0 +1,90 @@
+---
+version: 2.0.0
+title: parser__for_in_with_multiple_variables_and_expressions
+---
+for a, b, c in d, e, f do print(a, b, c) end
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(44, 45, 1),
+  ),
+  [
+    ForIn(
+      Span(
+        Position(0, 1, 1),
+        Position(44, 45, 1),
+      ),
+      ["a", "b", "c"],
+      [
+        Variable(
+          Span(
+            Position(15, 16, 1),
+            Position(16, 17, 1),
+          ),
+          "d",
+        ),
+        Variable(
+          Span(
+            Position(18, 19, 1),
+            Position(19, 20, 1),
+          ),
+          "e",
+        ),
+        Variable(
+          Span(
+            Position(21, 22, 1),
+            Position(22, 23, 1),
+          ),
+          "f",
+        ),
+      ],
+      Block(
+        Span(
+          Position(26, 27, 1),
+          Position(41, 42, 1),
+        ),
+        [
+          FunctionCall(
+            Span(
+              Position(26, 27, 1),
+              Position(40, 41, 1),
+            ),
+            Variable(
+              Span(
+                Position(26, 27, 1),
+                Position(31, 32, 1),
+              ),
+              "print",
+            ),
+            [
+              Variable(
+                Span(
+                  Position(32, 33, 1),
+                  Position(33, 34, 1),
+                ),
+                "a",
+              ),
+              Variable(
+                Span(
+                  Position(35, 36, 1),
+                  Position(36, 37, 1),
+                ),
+                "b",
+              ),
+              Variable(
+                Span(
+                  Position(38, 39, 1),
+                  Position(39, 40, 1),
+                ),
+                "c",
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  ],
+)

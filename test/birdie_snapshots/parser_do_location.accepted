@@ -1,0 +1,12 @@
+---
+version: 2.0.0
+title: parser_do_location
+---
+while a < 5 do
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+  print(a)
+▔▔▔▔▔▔▔▔▔▔
+  a = a + 1
+▔▔▔▔▔▔▔▔▔▔▔
+end
+▔▔▔

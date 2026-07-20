@@ -10,6 +10,7 @@ fn snap(code code: String, title title: String) -> Nil {
   }
 
   let content = code <> "\n\n------------------------------\n\n" <> result
+  let title = "parser__" <> title
 
   birdie.snap(content, title)
 }
@@ -20,6 +21,7 @@ fn snap_arithmetic_expression(code code: String, title title: String) -> Nil {
 
   let result = arithmetic_expression_to_prefix_notation(expr)
   let content = code <> "\n\n------------------------------\n\n" <> result
+  let title = "parser__" <> title
 
   birdie.snap(content, title)
 }
@@ -70,6 +72,8 @@ fn snap_statement_location(code code: String, title title: String) -> Nil {
       "",
     )
 
+  let title = "parser__" <> title
+
   birdie.snap(content, title)
 }
 
@@ -91,6 +95,8 @@ fn snap_expression_location(code code: String, title title: String) -> Nil {
       "",
       "",
     )
+
+  let title = "parser__" <> title
 
   birdie.snap(content, title)
 }

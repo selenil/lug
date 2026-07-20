@@ -1,0 +1,51 @@
+---
+version: 2.0.0
+title: parser__function_expression_without_arguments
+---
+return function() return true end
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(33, 34, 1),
+  ),
+  [
+    Return(
+      Span(
+        Position(0, 1, 1),
+        Position(33, 34, 1),
+      ),
+      [
+        Function(
+          Span(
+            Position(7, 8, 1),
+            Position(33, 34, 1),
+          ),
+          [],
+          Block(
+            Span(
+              Position(18, 19, 1),
+              Position(30, 31, 1),
+            ),
+            [
+              Return(
+                Span(
+                  Position(18, 19, 1),
+                  Position(29, 30, 1),
+                ),
+                [
+                  BooleanTrue(Span(
+                    Position(25, 26, 1),
+                    Position(29, 30, 1),
+                  )),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  ],
+)

@@ -1,0 +1,30 @@
+---
+version: 2.0.0
+title: parser__function_call_without_arguments
+---
+fun()
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(5, 6, 1),
+  ),
+  [
+    FunctionCall(
+      Span(
+        Position(0, 1, 1),
+        Position(5, 6, 1),
+      ),
+      Variable(
+        Span(
+          Position(0, 1, 1),
+          Position(3, 4, 1),
+        ),
+        "fun",
+      ),
+      [],
+    ),
+  ],
+)

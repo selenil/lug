@@ -1,0 +1,75 @@
+---
+version: 2.0.0
+title: parser__hexadecimal_floats
+---
+a, b, c  = 0x2.D1c, 0X3.aBe-2, -0xe1.8ap-1
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(42, 43, 1),
+  ),
+  [
+    Assignment(
+      Span(
+        Position(0, 1, 1),
+        Position(42, 43, 1),
+      ),
+      [
+        Variable(
+          Span(
+            Position(0, 1, 1),
+            Position(1, 2, 1),
+          ),
+          "a",
+        ),
+        Variable(
+          Span(
+            Position(3, 4, 1),
+            Position(4, 5, 1),
+          ),
+          "b",
+        ),
+        Variable(
+          Span(
+            Position(6, 7, 1),
+            Position(7, 8, 1),
+          ),
+          "c",
+        ),
+      ],
+      [
+        Numeral(
+          Span(
+            Position(11, 12, 1),
+            Position(18, 19, 1),
+          ),
+          "0x2.D1c",
+        ),
+        Numeral(
+          Span(
+            Position(20, 21, 1),
+            Position(29, 30, 1),
+          ),
+          "0X3.aBe-2",
+        ),
+        UnaryOperation(
+          Span(
+            Position(31, 32, 1),
+            Position(42, 43, 1),
+          ),
+          NumeralNegation,
+          Numeral(
+            Span(
+              Position(32, 33, 1),
+              Position(42, 43, 1),
+            ),
+            "0xe1.8ap-1",
+          ),
+        ),
+      ],
+    ),
+  ],
+)

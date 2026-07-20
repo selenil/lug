@@ -1,0 +1,10 @@
+---
+version: 2.0.0
+title: parser_local_function_location
+---
+local function id(x)
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+  return x
+▔▔▔▔▔▔▔▔▔▔
+end
+▔▔▔

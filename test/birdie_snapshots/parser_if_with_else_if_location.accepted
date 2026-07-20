@@ -1,0 +1,14 @@
+---
+version: 2.0.0
+title: parser_if_with_else_if_location
+---
+if a == 1 then
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+  return true
+▔▔▔▔▔▔▔▔▔▔▔▔▔
+elseif b == 2 then
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+  return true
+▔▔▔▔▔▔▔▔▔▔▔▔▔
+end
+▔▔▔
