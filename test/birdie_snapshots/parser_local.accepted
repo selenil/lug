@@ -1,0 +1,32 @@
+---
+version: 2.0.0
+title: parser__local
+---
+local a = 1
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(11, 12, 1),
+  ),
+  [
+    Local(
+      Span(
+        Position(0, 1, 1),
+        Position(11, 12, 1),
+      ),
+      [AttributeName(None, "a")],
+      [
+        Numeral(
+          Span(
+            Position(10, 11, 1),
+            Position(11, 12, 1),
+          ),
+          "1",
+        ),
+      ],
+    ),
+  ],
+)

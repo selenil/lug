@@ -1,0 +1,89 @@
+---
+version: 2.0.0
+title: parser__while_loop
+---
+while a < 5 do a = a + 1 end
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(28, 29, 1),
+  ),
+  [
+    While(
+      Span(
+        Position(0, 1, 1),
+        Position(28, 29, 1),
+      ),
+      BinaryOperation(
+        Span(
+          Position(8, 9, 1),
+          Position(11, 12, 1),
+        ),
+        Lt,
+        Variable(
+          Span(
+            Position(6, 7, 1),
+            Position(7, 8, 1),
+          ),
+          "a",
+        ),
+        Numeral(
+          Span(
+            Position(10, 11, 1),
+            Position(11, 12, 1),
+          ),
+          "5",
+        ),
+      ),
+      Block(
+        Span(
+          Position(15, 16, 1),
+          Position(25, 26, 1),
+        ),
+        [
+          Assignment(
+            Span(
+              Position(15, 16, 1),
+              Position(24, 25, 1),
+            ),
+            [
+              Variable(
+                Span(
+                  Position(15, 16, 1),
+                  Position(16, 17, 1),
+                ),
+                "a",
+              ),
+            ],
+            [
+              BinaryOperation(
+                Span(
+                  Position(21, 22, 1),
+                  Position(24, 25, 1),
+                ),
+                Add,
+                Variable(
+                  Span(
+                    Position(19, 20, 1),
+                    Position(20, 21, 1),
+                  ),
+                  "a",
+                ),
+                Numeral(
+                  Span(
+                    Position(23, 24, 1),
+                    Position(24, 25, 1),
+                  ),
+                  "1",
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  ],
+)

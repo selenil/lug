@@ -1,0 +1,49 @@
+---
+version: 2.0.0
+title: parser__function_declaration_with_variadic_argument
+---
+function variadic(...) return true end
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(38, 39, 1),
+  ),
+  [
+    FunctionDeclaration(
+      Span(
+        Position(0, 1, 1),
+        Position(38, 39, 1),
+      ),
+      FunctionName("variadic", [], None),
+      [
+        VariadicParameter(Span(
+          Position(18, 19, 1),
+          Position(21, 22, 1),
+        )),
+      ],
+      Block(
+        Span(
+          Position(23, 24, 1),
+          Position(35, 36, 1),
+        ),
+        [
+          Return(
+            Span(
+              Position(23, 24, 1),
+              Position(34, 35, 1),
+            ),
+            [
+              BooleanTrue(Span(
+                Position(30, 31, 1),
+                Position(34, 35, 1),
+              )),
+            ],
+          ),
+        ],
+      ),
+    ),
+  ],
+)

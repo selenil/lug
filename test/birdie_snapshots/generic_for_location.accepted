@@ -1,6 +1,0 @@
----
-version: 2.0.0
-title: generic_for_location
----
-for k, v in pairs(table) do print(k, v) end
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔

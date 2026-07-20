@@ -1,0 +1,68 @@
+---
+version: 2.0.0
+title: parser__hexadecimal_integers
+---
+a, b, c = 0x1, 0XabD3, 0x47Bc
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(29, 30, 1),
+  ),
+  [
+    Assignment(
+      Span(
+        Position(0, 1, 1),
+        Position(29, 30, 1),
+      ),
+      [
+        Variable(
+          Span(
+            Position(0, 1, 1),
+            Position(1, 2, 1),
+          ),
+          "a",
+        ),
+        Variable(
+          Span(
+            Position(3, 4, 1),
+            Position(4, 5, 1),
+          ),
+          "b",
+        ),
+        Variable(
+          Span(
+            Position(6, 7, 1),
+            Position(7, 8, 1),
+          ),
+          "c",
+        ),
+      ],
+      [
+        Numeral(
+          Span(
+            Position(10, 11, 1),
+            Position(13, 14, 1),
+          ),
+          "0x1",
+        ),
+        Numeral(
+          Span(
+            Position(15, 16, 1),
+            Position(21, 22, 1),
+          ),
+          "0XabD3",
+        ),
+        Numeral(
+          Span(
+            Position(23, 24, 1),
+            Position(29, 30, 1),
+          ),
+          "0x47Bc",
+        ),
+      ],
+    ),
+  ],
+)

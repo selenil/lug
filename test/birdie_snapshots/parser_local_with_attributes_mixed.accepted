@@ -1,0 +1,58 @@
+---
+version: 2.0.0
+title: parser__local_with_attributes_mixed
+---
+local a <const>, b, c <close>, d = 1, 2, 3, 4
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(45, 46, 1),
+  ),
+  [
+    Local(
+      Span(
+        Position(0, 1, 1),
+        Position(45, 46, 1),
+      ),
+      [
+        AttributeName(Some(Const), "a"),
+        AttributeName(None, "b"),
+        AttributeName(Some(Close), "c"),
+        AttributeName(None, "d"),
+      ],
+      [
+        Numeral(
+          Span(
+            Position(35, 36, 1),
+            Position(36, 37, 1),
+          ),
+          "1",
+        ),
+        Numeral(
+          Span(
+            Position(38, 39, 1),
+            Position(39, 40, 1),
+          ),
+          "2",
+        ),
+        Numeral(
+          Span(
+            Position(41, 42, 1),
+            Position(42, 43, 1),
+          ),
+          "3",
+        ),
+        Numeral(
+          Span(
+            Position(44, 45, 1),
+            Position(45, 46, 1),
+          ),
+          "4",
+        ),
+      ],
+    ),
+  ],
+)

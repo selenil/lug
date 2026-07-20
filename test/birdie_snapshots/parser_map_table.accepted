@@ -1,0 +1,216 @@
+---
+version: 2.0.0
+title: parser__map_table
+---
+return {a = 1, b = 2, c = 3, d = true, e = 2 + 4 / 3, f = fun(x)}
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(65, 66, 1),
+  ),
+  [
+    Return(
+      Span(
+        Position(0, 1, 1),
+        Position(65, 66, 1),
+      ),
+      [
+        Table(
+          Span(
+            Position(7, 8, 1),
+            Position(65, 66, 1),
+          ),
+          [
+            RecordField(
+              Span(
+                Position(8, 9, 1),
+                Position(13, 14, 1),
+              ),
+              LiteralString(
+                Span(
+                  Position(8, 9, 1),
+                  Position(9, 10, 1),
+                ),
+                "a",
+              ),
+              Numeral(
+                Span(
+                  Position(12, 13, 1),
+                  Position(13, 14, 1),
+                ),
+                "1",
+              ),
+            ),
+            RecordField(
+              Span(
+                Position(15, 16, 1),
+                Position(20, 21, 1),
+              ),
+              LiteralString(
+                Span(
+                  Position(15, 16, 1),
+                  Position(16, 17, 1),
+                ),
+                "b",
+              ),
+              Numeral(
+                Span(
+                  Position(19, 20, 1),
+                  Position(20, 21, 1),
+                ),
+                "2",
+              ),
+            ),
+            RecordField(
+              Span(
+                Position(22, 23, 1),
+                Position(27, 28, 1),
+              ),
+              LiteralString(
+                Span(
+                  Position(22, 23, 1),
+                  Position(23, 24, 1),
+                ),
+                "c",
+              ),
+              Numeral(
+                Span(
+                  Position(26, 27, 1),
+                  Position(27, 28, 1),
+                ),
+                "3",
+              ),
+            ),
+            RecordField(
+              Span(
+                Position(29, 30, 1),
+                Position(37, 38, 1),
+              ),
+              LiteralString(
+                Span(
+                  Position(29, 30, 1),
+                  Position(30, 31, 1),
+                ),
+                "d",
+              ),
+              BooleanTrue(Span(
+                Position(33, 34, 1),
+                Position(37, 38, 1),
+              )),
+            ),
+            RecordField(
+              Span(
+                Position(39, 40, 1),
+                Position(52, 53, 1),
+              ),
+              LiteralString(
+                Span(
+                  Position(39, 40, 1),
+                  Position(40, 41, 1),
+                ),
+                "e",
+              ),
+              BinaryOperation(
+                Span(
+                  Position(45, 46, 1),
+                  Position(52, 53, 1),
+                ),
+                Add,
+                Numeral(
+                  Span(
+                    Position(43, 44, 1),
+                    Position(44, 45, 1),
+                  ),
+                  "2",
+                ),
+                BinaryOperation(
+                  Span(
+                    Position(49, 50, 1),
+                    Position(52, 53, 1),
+                  ),
+                  Div,
+                  Numeral(
+                    Span(
+                      Position(
+                        47,
+                        48,
+                        1,
+                      ),
+                      Position(
+                        48,
+                        49,
+                        1,
+                      ),
+                    ),
+                    "4",
+                  ),
+                  Numeral(
+                    Span(
+                      Position(
+                        51,
+                        52,
+                        1,
+                      ),
+                      Position(
+                        52,
+                        53,
+                        1,
+                      ),
+                    ),
+                    "3",
+                  ),
+                ),
+              ),
+            ),
+            RecordField(
+              Span(
+                Position(54, 55, 1),
+                Position(64, 65, 1),
+              ),
+              LiteralString(
+                Span(
+                  Position(54, 55, 1),
+                  Position(55, 56, 1),
+                ),
+                "f",
+              ),
+              Call(
+                Span(
+                  Position(58, 59, 1),
+                  Position(64, 65, 1),
+                ),
+                Variable(
+                  Span(
+                    Position(58, 59, 1),
+                    Position(61, 62, 1),
+                  ),
+                  "fun",
+                ),
+                [
+                  Variable(
+                    Span(
+                      Position(
+                        62,
+                        63,
+                        1,
+                      ),
+                      Position(
+                        63,
+                        64,
+                        1,
+                      ),
+                    ),
+                    "x",
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  ],
+)

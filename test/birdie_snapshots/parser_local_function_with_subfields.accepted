@@ -1,0 +1,44 @@
+---
+version: 2.0.0
+title: parser__local_function_with_subfields
+---
+local function M.fun() return true end
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(38, 39, 1),
+  ),
+  [
+    LocalFunction(
+      Span(
+        Position(0, 1, 1),
+        Position(38, 39, 1),
+      ),
+      FunctionName("M", ["fun"], None),
+      [],
+      Block(
+        Span(
+          Position(23, 24, 1),
+          Position(35, 36, 1),
+        ),
+        [
+          Return(
+            Span(
+              Position(23, 24, 1),
+              Position(34, 35, 1),
+            ),
+            [
+              BooleanTrue(Span(
+                Position(30, 31, 1),
+                Position(34, 35, 1),
+              )),
+            ],
+          ),
+        ],
+      ),
+    ),
+  ],
+)

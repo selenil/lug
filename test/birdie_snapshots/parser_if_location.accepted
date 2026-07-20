@@ -1,0 +1,6 @@
+---
+version: 2.0.0
+title: parser_if_location
+---
+if a == 1 then return a end
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔

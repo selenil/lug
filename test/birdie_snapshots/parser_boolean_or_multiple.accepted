@@ -1,0 +1,59 @@
+---
+version: 2.0.0
+title: parser__boolean_or_multiple
+---
+return x or y or z
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(18, 19, 1),
+  ),
+  [
+    Return(
+      Span(
+        Position(0, 1, 1),
+        Position(18, 19, 1),
+      ),
+      [
+        BinaryOperation(
+          Span(
+            Position(14, 15, 1),
+            Position(18, 19, 1),
+          ),
+          BooleanOr,
+          BinaryOperation(
+            Span(
+              Position(9, 10, 1),
+              Position(13, 14, 1),
+            ),
+            BooleanOr,
+            Variable(
+              Span(
+                Position(7, 8, 1),
+                Position(8, 9, 1),
+              ),
+              "x",
+            ),
+            Variable(
+              Span(
+                Position(12, 13, 1),
+                Position(13, 14, 1),
+              ),
+              "y",
+            ),
+          ),
+          Variable(
+            Span(
+              Position(17, 18, 1),
+              Position(18, 19, 1),
+            ),
+            "z",
+          ),
+        ),
+      ],
+    ),
+  ],
+)

@@ -1,0 +1,10 @@
+---
+version: 2.0.0
+title: parser_function_expression_location
+---
+return function(x)
+       ▔▔▔▔▔▔▔▔▔▔▔
+  return x
+▔▔▔▔▔▔▔▔▔▔
+end
+▔▔▔

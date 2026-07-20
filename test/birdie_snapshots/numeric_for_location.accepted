@@ -1,6 +1,0 @@
----
-version: 2.0.0
-title: numeric_for_location
----
-for i = 0, 5, 1 do print(i) end
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
