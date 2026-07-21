@@ -54,6 +54,8 @@ pub type Instruction {
     eval_condition_before_block: Bool,
     body: List(Instruction),
   )
+  ForLoop(start: Int, identifier: Int, body: List(Instruction))
+  TForLoop(start: Int, identifier: Int, count: Int, body: List(Instruction))
   Break
 
   // arithmetic instructions
@@ -110,6 +112,7 @@ pub type Span {
 pub type Context {
   Context(
     vars: dict.Dict(String, Variable),
+    statement_bindings: dict.Dict(#(String, parser.Span), Int),
     next_register: Int,
     next_global: Int,
     prototypes: List(Chunk),
@@ -136,7 +139,13 @@ fn do_compile(ast: parser.Block, context: Context, chunk: Chunk) -> Chunk {
 }
 
 fn init_context(ast: parser.Block) -> Context {
-  Context(vars: dict.new(), next_register: 1, next_global: 0, prototypes: [])
+  Context(
+    vars: dict.new(),
+    statement_bindings: dict.new(),
+    next_register: 1,
+    next_global: 0,
+    prototypes: [],
+  )
   |> scan_block(ast)
 }
 
@@ -175,32 +184,38 @@ fn scan_statement(context: Context, statement: parser.Statement) -> Context {
         option.Some(block) -> scan_block(context, block)
       }
     }
-    parser.For(_, identifier, init, limit, step, body) -> {
+    parser.For(span, identifier, init, limit, step, body) -> {
       let context =
         Context(
           ..context,
-          vars: dict.insert(
-            context.vars,
-            identifier,
-            Local(context.next_register),
+          statement_bindings: dict.insert(
+            context.statement_bindings,
+            #(identifier, span),
+            context.next_register,
           ),
+          next_register: context.next_register + 1,
         )
       scan_expression(context, init)
       |> scan_expression(limit)
 
-      let context =
-        case step {
-          option.None -> context
-          option.Some(step) -> scan_expression(context, step)
-        }
-        |> scan_block(body)
-
-      Context(..context, next_register: context.next_register + 3)
+      case step {
+        option.None -> context
+        option.Some(step) -> scan_expression(context, step)
+      }
+      |> scan_block(body)
     }
-    parser.ForIn(_, names, in, body) -> {
+    parser.ForIn(span, names, in, body) -> {
       list.fold(in, context, scan_expression)
-      |> list.fold(names, _, fn(context, _name) {
-        Context(..context, next_register: context.next_register + 1)
+      |> list.fold(names, _, fn(context, name) {
+        Context(
+          ..context,
+          statement_bindings: dict.insert(
+            context.statement_bindings,
+            #(name, span),
+            context.next_register,
+          ),
+          next_register: context.next_register + 1,
+        )
       })
       |> scan_block(body)
     }
@@ -318,9 +333,10 @@ fn statement(
     parser.Repeat(_, condition, body) -> repeat(condition, body, context)
     parser.If(_, condition, then, else_if, else_) ->
       if_(condition, then, else_if, else_, context)
-    parser.For(_, identifier, init, limit, step, body) ->
-      for(identifier, init, limit, step, body, context)
-    parser.ForIn(_, names, in, body) -> for_in(names, in, body, context)
+    parser.For(span, identifier, init, limit, step, body) ->
+      for(identifier, init, limit, step, body, span, context)
+    parser.ForIn(span, names, in, body) ->
+      for_in(names, in, body, span, context)
     parser.FunctionDeclaration(_, name, parameters, body) ->
       function_declaration(name, parameters, body, context)
     parser.LocalFunction(_, name, parameters, body) ->
@@ -574,18 +590,100 @@ fn for(
   limit: parser.Expression,
   step: option.Option(parser.Expression),
   body: parser.Block,
+  span: parser.Span,
   context: Context,
 ) -> #(Context, List(Instruction)) {
-  todo
+  let assert Ok(identifier_register) =
+    dict.get(context.statement_bindings, #(identifier, span))
+
+  let start = context.next_register
+  let context = Context(..context, next_register: start + 3)
+
+  let #(context, init_register, init_instructions) = expression(init, context)
+  let #(context, limit_register, limit_instructions) =
+    expression(limit, context)
+  let #(context, step_register, step_instructions) = case step {
+    option.Some(step) -> expression(step, context)
+    option.None -> #(advance(context), context.next_register, [
+      LoadConstant(context.next_register, Int(1)),
+    ])
+  }
+
+  let #(context, body) = block(body, context)
+
+  let generated =
+    [
+      ForLoop(start, identifier_register, body),
+      Move(start, init_register),
+      Move(start + 1, limit_register),
+      Move(start + 2, step_register),
+    ]
+    |> list.append(step_instructions)
+    |> list.append(limit_instructions)
+    |> list.append(init_instructions)
+
+  #(context, generated)
 }
 
 fn for_in(
   names: List(String),
   in: List(parser.Expression),
   body: parser.Block,
+  span: parser.Span,
   context: Context,
 ) -> #(Context, List(Instruction)) {
-  todo
+  let assert [first, ..] = names
+  let assert Ok(names_start) =
+    dict.get(context.statement_bindings, #(first, span))
+
+  let names_count = list.length(names)
+
+  let start = context.next_register
+  let context = Context(..context, next_register: start + 3)
+
+  let #(context, iterator_instructions) = case in {
+    [in] -> {
+      let #(context, _, iterator_instructions) = expression(in, context)
+      #(context, iterator_instructions)
+    }
+
+    _ -> {
+      let #(context, iterators_registers, iterators_instructions) =
+        list.fold(in, #(context, [], []), fn(acc, iterator) {
+          let #(context, registers, generated) = acc
+          let #(context, iterator_register, iterator_instructions) =
+            expression(iterator, context)
+
+          #(
+            context,
+            [iterator_register, ..registers],
+            list.append(generated, iterator_instructions),
+          )
+        })
+
+      let move =
+        list.reverse(iterators_registers)
+        |> list.index_fold([], fn(acc, source, i) {
+          let target = start + 1
+          case source == target {
+            True -> []
+            False -> [Move(target, source), ..acc]
+          }
+        })
+        |> list.reverse
+
+      #(context, list.append(move, iterators_instructions))
+    }
+  }
+
+  let #(context, body) = block(body, context)
+
+  let generated = [
+    TForLoop(start, names_start, names_count, body),
+    ..iterator_instructions
+  ]
+
+  #(context, generated)
 }
 
 fn function_declaration(
