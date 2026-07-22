@@ -1,13 +1,13 @@
 //// Lexer for Lua 5.4
 
+import gleam/bit_array
 import gleam/list
 import gleam/option
-import gleam/string
 
 pub opaque type Lexer {
   Lexer(
-    original: String,
-    source: String,
+    original: BitArray,
+    source: BitArray,
     offset: Int,
     column: Int,
     line: Int,
@@ -24,12 +24,12 @@ pub type Position {
 pub type Token {
   // literals
   Identifier(String)
-  String(String)
-  LongString(String)
+  String(BitArray)
+  LongString(BitArray)
   Int(String)
   Float(String)
-  Comment(String)
-  LongComment(String)
+  Comment(BitArray)
+  LongComment(BitArray)
 
   // keywords
   And
@@ -101,18 +101,19 @@ pub type Token {
   DotDotDot
 
   // whitespace
-  Space(String)
+  Space(BitArray)
 
   EndOfFile
 
   // Invalid code
-  UnterminatedString(String)
-  UnterminatedLongString(String)
-  UnterminatedLongComment(String)
-  UnexpectedGrapheme(String)
+  UnterminatedString(BitArray)
+  UnterminatedLongString(BitArray)
+  UnterminatedLongComment(BitArray)
+  UnexpectedGrapheme(BitArray)
 }
 
-pub fn new(source: String) -> Lexer {
+pub fn from_string(source: String) -> Lexer {
+  let source = bit_array.from_string(source)
   Lexer(
     original: source,
     source:,
@@ -123,6 +124,24 @@ pub fn new(source: String) -> Lexer {
     keep_whitespaces: True,
     new_lines: compile_binary_pattern(["\r", "\n"]),
   )
+}
+
+pub fn new(source: BitArray) -> Result(Lexer, Nil) {
+  case bit_array.bit_size(source) % 8 {
+    0 ->
+      Lexer(
+        original: source,
+        source:,
+        offset: 0,
+        column: 1,
+        line: 1,
+        keep_comments: True,
+        keep_whitespaces: True,
+        new_lines: compile_binary_pattern(["\r", "\n"]),
+      )
+      |> Ok
+    _ -> Error(Nil)
+  }
 }
 
 pub fn discard_comments(lexer: Lexer) -> Lexer {
@@ -141,9 +160,9 @@ pub fn lex(lexer: Lexer) -> List(#(Token, Position)) {
 // removes shebang from first line if it is present
 fn check_for_shebang(lexer: Lexer) -> Lexer {
   case lexer.source {
-    "#" <> _rest -> {
+    <<"#", _rest:bits>> -> {
       let source = case split_until_new_line(lexer, lexer.source) {
-        #(_shebang, "\n" <> rest) -> rest
+        #(_shebang, <<"\n", rest:bits>>) -> rest
         #(_shebang, rest) -> rest
       }
       Lexer(..lexer, original: source, source:)
@@ -158,7 +177,7 @@ fn lex_loop(
 ) -> List(#(Token, Position)) {
   case lexer.source {
     // Whitespace
-    " " <> rest | "\t" <> rest -> {
+    <<" ", rest:bits>> | <<"\t", rest:bits>> -> {
       let pos = Position(lexer.offset, lexer.column, lexer.line)
       let #(lexer, content) = advance(lexer, rest, 1) |> lex_whitespace(pos, 1)
 
@@ -169,7 +188,7 @@ fn lex_loop(
     }
 
     // Newline
-    "\n" <> rest | "\r" <> rest -> {
+    <<"\n", rest:bits>> | <<"\r", rest:bits>> -> {
       let pos = Position(lexer.offset, lexer.column, lexer.line)
       let #(lexer, content) =
         advance_line(lexer, rest, 1) |> lex_whitespace(pos, 1)
@@ -181,7 +200,7 @@ fn lex_loop(
     }
 
     // comments
-    "--[" <> rest -> {
+    <<"--[", rest:bits>> -> {
       let pos = Position(lexer.offset, lexer.column, lexer.line)
 
       // see first if it is a single-line comment starting with a [
@@ -189,7 +208,7 @@ fn lex_loop(
         option.Some(#(rest, depth)) ->
           advance(lexer, rest, 4 + depth) |> lex_long_comment(pos, 0, depth)
 
-        option.None -> advance(lexer, "[" <> rest, 2) |> lex_comment(pos)
+        option.None -> advance(lexer, <<"[", rest:bits>>, 2) |> lex_comment(pos)
       }
 
       case lexer.keep_comments {
@@ -198,7 +217,7 @@ fn lex_loop(
       }
     }
 
-    "--" <> rest -> {
+    <<"--", rest:bits>> -> {
       let pos = Position(lexer.offset, lexer.column, lexer.line)
       let #(lexer, token) = advance(lexer, rest, 2) |> lex_comment(pos)
 
@@ -209,7 +228,7 @@ fn lex_loop(
     }
 
     // Single line strings
-    "\"" <> rest -> {
+    <<"\"", rest:bits>> -> {
       let pos = Position(lexer.offset, lexer.column, lexer.line)
       let #(lexer, token) =
         advance(lexer, rest, 1) |> lex_string(pos, 0, Double, String)
@@ -217,7 +236,7 @@ fn lex_loop(
       lex_loop(lexer, [token, ..acc])
     }
 
-    "'" <> rest -> {
+    <<"'", rest:bits>> -> {
       let pos = Position(lexer.offset, lexer.column, lexer.line)
       let #(lexer, token) =
         advance(lexer, rest, 1) |> lex_string(pos, 0, Single, String)
@@ -226,12 +245,12 @@ fn lex_loop(
     }
 
     // Need to appear first in the pattern matching
-    "..." <> rest ->
+    <<"...", rest:bits>> ->
       advance(lexer, rest, 3) |> lex_loop([token(lexer, DotDotDot), ..acc])
-    "~=" <> rest ->
+    <<"~=", rest:bits>> ->
       advance(lexer, rest, 2) |> lex_loop([token(lexer, NotEqual), ..acc])
 
-    "[" <> rest ->
+    <<"[", rest:bits>> ->
       case find_opening_brace(rest, 0) {
         // long string
         option.Some(#(rest, depth)) -> {
@@ -248,32 +267,32 @@ fn lex_loop(
       }
 
     // keywords and names 
-    "a" <> rest
-    | "b" <> rest
-    | "c" <> rest
-    | "d" <> rest
-    | "e" <> rest
-    | "f" <> rest
-    | "g" <> rest
-    | "h" <> rest
-    | "i" <> rest
-    | "j" <> rest
-    | "k" <> rest
-    | "l" <> rest
-    | "m" <> rest
-    | "n" <> rest
-    | "o" <> rest
-    | "p" <> rest
-    | "q" <> rest
-    | "r" <> rest
-    | "s" <> rest
-    | "t" <> rest
-    | "u" <> rest
-    | "v" <> rest
-    | "w" <> rest
-    | "x" <> rest
-    | "y" <> rest
-    | "z" <> rest -> {
+    <<"a", rest:bits>>
+    | <<"b", rest:bits>>
+    | <<"c", rest:bits>>
+    | <<"d", rest:bits>>
+    | <<"e", rest:bits>>
+    | <<"f", rest:bits>>
+    | <<"g", rest:bits>>
+    | <<"h", rest:bits>>
+    | <<"i", rest:bits>>
+    | <<"j", rest:bits>>
+    | <<"k", rest:bits>>
+    | <<"l", rest:bits>>
+    | <<"m", rest:bits>>
+    | <<"n", rest:bits>>
+    | <<"o", rest:bits>>
+    | <<"p", rest:bits>>
+    | <<"q", rest:bits>>
+    | <<"r", rest:bits>>
+    | <<"s", rest:bits>>
+    | <<"t", rest:bits>>
+    | <<"u", rest:bits>>
+    | <<"v", rest:bits>>
+    | <<"w", rest:bits>>
+    | <<"x", rest:bits>>
+    | <<"y", rest:bits>>
+    | <<"z", rest:bits>> -> {
       let pos = Position(lexer.offset, lexer.column, lexer.line)
 
       let #(lexer, word) =
@@ -309,7 +328,7 @@ fn lex_loop(
       // check if there's a minus symbol next to avoid lexing it
       // as part of a negative number
       case lexer.source {
-        "-" <> rest -> {
+        <<"-", rest:bits>> -> {
           let minus = token(lexer, Minus)
           lex_loop(advance(lexer, rest, 1), [minus, #(tok, pos), ..acc])
         }
@@ -318,32 +337,32 @@ fn lex_loop(
     }
 
     // Uppercase Name
-    "A" <> rest
-    | "B" <> rest
-    | "C" <> rest
-    | "D" <> rest
-    | "E" <> rest
-    | "F" <> rest
-    | "G" <> rest
-    | "H" <> rest
-    | "I" <> rest
-    | "J" <> rest
-    | "K" <> rest
-    | "L" <> rest
-    | "M" <> rest
-    | "N" <> rest
-    | "O" <> rest
-    | "P" <> rest
-    | "Q" <> rest
-    | "R" <> rest
-    | "S" <> rest
-    | "T" <> rest
-    | "U" <> rest
-    | "V" <> rest
-    | "W" <> rest
-    | "X" <> rest
-    | "Y" <> rest
-    | "Z" <> rest -> {
+    <<"A", rest:bits>>
+    | <<"B", rest:bits>>
+    | <<"C", rest:bits>>
+    | <<"D", rest:bits>>
+    | <<"E", rest:bits>>
+    | <<"F", rest:bits>>
+    | <<"G", rest:bits>>
+    | <<"H", rest:bits>>
+    | <<"I", rest:bits>>
+    | <<"J", rest:bits>>
+    | <<"K", rest:bits>>
+    | <<"L", rest:bits>>
+    | <<"M", rest:bits>>
+    | <<"N", rest:bits>>
+    | <<"O", rest:bits>>
+    | <<"P", rest:bits>>
+    | <<"Q", rest:bits>>
+    | <<"R", rest:bits>>
+    | <<"S", rest:bits>>
+    | <<"T", rest:bits>>
+    | <<"U", rest:bits>>
+    | <<"V", rest:bits>>
+    | <<"W", rest:bits>>
+    | <<"X", rest:bits>>
+    | <<"Y", rest:bits>>
+    | <<"Z", rest:bits>> -> {
       let pos = Position(lexer.offset, lexer.column, lexer.line)
 
       let #(lexer, identifier) =
@@ -353,7 +372,7 @@ fn lex_loop(
       // check if there's a minus symbol next to avoid lexing it
       // as part of a negative number
       case lexer.source {
-        "-" <> rest -> {
+        <<"-", rest:bits>> -> {
           let minus = token(lexer, Minus)
           lex_loop(advance(lexer, rest, 1), [
             minus,
@@ -366,7 +385,7 @@ fn lex_loop(
     }
 
     // discards names
-    "_" <> rest -> {
+    <<"_", rest:bits>> -> {
       let pos = Position(lexer.offset, lexer.column, lexer.line)
 
       let #(lexer, identifier) =
@@ -377,7 +396,7 @@ fn lex_loop(
     }
 
     // hexadecimal numbers
-    "0x" <> rest | "0X" <> rest -> {
+    <<"0x", rest:bits>> | <<"0X", rest:bits>> -> {
       let pos = Position(lexer.offset, lexer.column, lexer.line)
       let #(lexer, token) =
         advance(lexer, rest, 2) |> lex_hexadecimal_int(pos, 2)
@@ -386,16 +405,16 @@ fn lex_loop(
     }
 
     // Decimal Numbers
-    "0" <> rest
-    | "1" <> rest
-    | "2" <> rest
-    | "3" <> rest
-    | "4" <> rest
-    | "5" <> rest
-    | "6" <> rest
-    | "7" <> rest
-    | "8" <> rest
-    | "9" <> rest -> {
+    <<"0", rest:bits>>
+    | <<"1", rest:bits>>
+    | <<"2", rest:bits>>
+    | <<"3", rest:bits>>
+    | <<"4", rest:bits>>
+    | <<"5", rest:bits>>
+    | <<"6", rest:bits>>
+    | <<"7", rest:bits>>
+    | <<"8", rest:bits>>
+    | <<"9", rest:bits>> -> {
       let pos = Position(lexer.offset, lexer.column, lexer.line)
       let lexer = advance(lexer, rest, 1)
       let #(lexer, acc) = case lex_int(lexer, pos, 1) {
@@ -407,9 +426,9 @@ fn lex_loop(
     }
 
     // hexadecimal numbers prefixed with a negation
-    "-0x" <> rest | "-0X" <> rest -> {
+    <<"-0x", rest:bits>> | <<"-0X", rest:bits>> -> {
       let minus = token(lexer, Minus)
-      let lexer = advance(lexer, "0x" <> rest, 1)
+      let lexer = advance(lexer, <<"0x", rest:bits>>, 1)
       let pos = Position(lexer.offset, lexer.column, lexer.line)
       let #(lexer, number) =
         advance(lexer, rest, 2) |> lex_hexadecimal_int(pos, 2)
@@ -417,16 +436,16 @@ fn lex_loop(
       lex_loop(lexer, [number, minus, ..acc])
     }
 
-    "-0" <> rest
-    | "-1" <> rest
-    | "-2" <> rest
-    | "-3" <> rest
-    | "-4" <> rest
-    | "-5" <> rest
-    | "-6" <> rest
-    | "-7" <> rest
-    | "-8" <> rest
-    | "-9" <> rest -> {
+    <<"-0", rest:bits>>
+    | <<"-1", rest:bits>>
+    | <<"-2", rest:bits>>
+    | <<"-3", rest:bits>>
+    | <<"-4", rest:bits>>
+    | <<"-5", rest:bits>>
+    | <<"-6", rest:bits>>
+    | <<"-7", rest:bits>>
+    | <<"-8", rest:bits>>
+    | <<"-9", rest:bits>> -> {
       let pos = Position(lexer.offset, lexer.column, lexer.line)
       let lexer = advance(lexer, rest, 2)
       let #(lexer, acc) = case lex_int(lexer, pos, 2) {
@@ -438,100 +457,102 @@ fn lex_loop(
     }
 
     // Arithmetic operators
-    "+" <> rest ->
+    <<"+", rest:bits>> ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, Plus), ..acc])
-    "-" <> rest ->
+    <<"-", rest:bits>> ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, Minus), ..acc])
-    "*" <> rest ->
+    <<"*", rest:bits>> ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, Star), ..acc])
-    "//" <> rest ->
+    <<"//", rest:bits>> ->
       lex_loop(advance(lexer, rest, 2), [token(lexer, SlashSlash), ..acc])
-    "/" <> rest ->
+    <<"/", rest:bits>> ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, Slash), ..acc])
-    "%" <> rest ->
+    <<"%", rest:bits>> ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, Percent), ..acc])
-    "^" <> rest ->
+    <<"^", rest:bits>> ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, Circumflex), ..acc])
 
     // Bitwise operators
-    "&" <> rest ->
+    <<"&", rest:bits>> ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, Amper), ..acc])
-    "|" <> rest ->
+    <<"|", rest:bits>> ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, VBar), ..acc])
-    "~" <> rest ->
+    <<"~", rest:bits>> ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, Tilde), ..acc])
-    ">>" <> rest ->
+    <<">>", rest:bits>> ->
       lex_loop(advance(lexer, rest, 2), [token(lexer, GreaterGreater), ..acc])
-    "<<" <> rest ->
+    <<"<<", rest:bits>> ->
       lex_loop(advance(lexer, rest, 2), [token(lexer, LessLess), ..acc])
 
     // Relational operators
-    "==" <> rest ->
+    <<"==", rest:bits>> ->
       lex_loop(advance(lexer, rest, 2), [token(lexer, EqualEqual), ..acc])
-    ">=" <> rest ->
+    <<">=", rest:bits>> ->
       lex_loop(advance(lexer, rest, 2), [token(lexer, GreaterEqual), ..acc])
-    "<=" <> rest ->
+    <<"<=", rest:bits>> ->
       lex_loop(advance(lexer, rest, 2), [token(lexer, LessEqual), ..acc])
-    ">" <> rest ->
+    <<">", rest:bits>> ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, Greater), ..acc])
-    "<" <> rest ->
+    <<"<", rest:bits>> ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, Less), ..acc])
 
     // other operators
-    ".." <> rest ->
+    <<"..", rest:bits>> ->
       lex_loop(advance(lexer, rest, 2), [token(lexer, DotDot), ..acc])
-    "#" <> rest ->
+    <<"#", rest:bits>> ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, Hash), ..acc])
 
     // Grouping
-    "(" <> rest ->
+    <<"(", rest:bits>> ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, LeftParen), ..acc])
-    ")" <> rest ->
+    <<")", rest:bits>> ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, RightParen), ..acc])
-    "{" <> rest ->
+    <<"{", rest:bits>> ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, LeftBrace), ..acc])
-    "}" <> rest ->
+    <<"}", rest:bits>> ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, RightBrace), ..acc])
-    "]" <> rest ->
+    <<"]", rest:bits>> ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, RightSquare), ..acc])
 
     // Punctuation
-    "=" <> rest ->
+    <<"=", rest:bits>> ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, Equal), ..acc])
-    "::" <> rest ->
+    <<"::", rest:bits>> ->
       lex_loop(advance(lexer, rest, 2), [token(lexer, ColonColon), ..acc])
-    ":" <> rest ->
+    <<":", rest:bits>> ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, Colon), ..acc])
-    ";" <> rest ->
+    <<";", rest:bits>> ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, Semicolon), ..acc])
-    "," <> rest ->
+    <<",", rest:bits>> ->
       lex_loop(advance(lexer, rest, 1), [token(lexer, Comma), ..acc])
-    "." <> rest -> lex_loop(advance(lexer, rest, 1), [token(lexer, Dot), ..acc])
+    <<".", rest:bits>> ->
+      lex_loop(advance(lexer, rest, 1), [token(lexer, Dot), ..acc])
 
     // check if we are at the end of the file
     _ ->
-      case string.pop_grapheme(lexer.source) {
-        // end of file, stop lexing
-        Error(_) -> list.reverse([token(lexer, EndOfFile), ..acc])
-
+      case lexer.source {
         // unexpected grapheme, continue lexing
-        Ok(#(unexpected, rest)) ->
-          lex_loop(advance(lexer, rest, string.length(unexpected)), [
-            token(lexer, UnexpectedGrapheme(unexpected)),
+        <<unexpected, rest:bits>> ->
+          lex_loop(advance(lexer, rest, 1), [
+            token(lexer, UnexpectedGrapheme(<<unexpected>>)),
             ..acc
           ])
+        // end of file, stop lexing
+        <<>> -> list.reverse([token(lexer, EndOfFile), ..acc])
+        _ -> panic as { "lexer.source must be byte aligned" }
       }
   }
 }
 
 fn lex_whitespace(lexer: Lexer, position: Position, slice: Int) {
   case lexer.source {
-    "\n" <> rest | "\r" <> rest ->
+    <<"\n", rest:bits>> | <<"\r", rest:bits>> ->
       lex_whitespace(advance_line(lexer, rest, 1), position, slice + 1)
-    " " <> rest | "\t" <> rest ->
+    <<" ", rest:bits>> | <<"\t", rest:bits>> ->
       lex_whitespace(advance(lexer, rest, 1), position, slice + 1)
     _ -> {
-      let content = slice_bytes(lexer.original, position.offset, slice)
+      let assert Ok(content) =
+        bit_array.slice(lexer.original, position.offset, slice)
       #(lexer, content)
     }
   }
@@ -543,22 +564,22 @@ fn lex_comment(
 ) -> #(Lexer, #(Token, Position)) {
   let #(comment, rest) = split_until_new_line(lexer, lexer.source)
 
-  let lexer = advance(lexer, rest, string.length(comment))
+  let lexer = advance(lexer, rest, bit_array.byte_size(comment))
   #(lexer, #(Comment(comment), position))
 }
 
 fn lex_long_comment(lexer: Lexer, position: Position, slice: Int, depth: Int) {
   case lexer.source {
-    "]" <> rest ->
+    <<"]", rest:bits>> ->
       case find_closing_brace(rest, 0) {
         option.Some(#(rest, found)) if found == depth -> {
-          let content =
-            slice_bytes(lexer.original, position.offset + depth + 4, slice)
+          let assert Ok(content) =
+            bit_array.slice(lexer.original, position.offset + depth + 4, slice)
           #(advance(lexer, rest, depth + 2), #(LongComment(content), position))
         }
 
         option.Some(#(rest, found)) ->
-          advance(lexer, "]" <> rest, found + 1)
+          advance(lexer, <<"]", rest:bits>>, found + 1)
           |> lex_long_comment(position, slice + found + 1, depth)
 
         option.None ->
@@ -566,13 +587,13 @@ fn lex_long_comment(lexer: Lexer, position: Position, slice: Int, depth: Int) {
           |> lex_long_comment(position, slice + 1, depth)
       }
 
-    "\n" <> rest ->
+    <<"\n", rest:bits>> ->
       advance_line(lexer, rest, 1)
       |> lex_long_comment(position, slice + 1, depth)
 
-    "" -> {
-      let content =
-        slice_bytes(lexer.original, position.offset + depth + 4, slice)
+    <<>> -> {
+      let assert Ok(content) =
+        bit_array.slice(lexer.original, position.offset + depth + 4, slice)
       #(
         advance(lexer, lexer.source, 1),
         #(UnterminatedLongComment(content), position),
@@ -595,47 +616,50 @@ fn lex_string(
   position: Position,
   slice: Int,
   closing_quote: StringClosingQuote,
-  emit: fn(String) -> Token,
+  emit: fn(BitArray) -> Token,
 ) -> #(Lexer, #(Token, Position)) {
   case lexer.source {
-    "'" <> rest if closing_quote == Single ->
+    <<"'", rest:bits>> if closing_quote == Single ->
       consume_string(lexer, rest, position, slice, emit)
-    "\"" <> rest if closing_quote == Double ->
+    <<"\"", rest:bits>> if closing_quote == Double ->
       consume_string(lexer, rest, position, slice, emit)
 
-    "\n" <> rest ->
+    <<"\n", rest:bits>> ->
       advance(lexer, rest, 2)
       |> lex_string(position, slice + 2, closing_quote, UnterminatedString)
 
-    "\\z" <> rest -> {
+    <<"\\z", rest:bits>> -> {
       let #(lexer, content) =
         lex_whitespace(advance(lexer, rest, 2), position, 2)
 
       lex_string(
         lexer,
         position,
-        slice + string.length(content),
+        slice + bit_array.byte_size(content),
         closing_quote,
         emit,
       )
     }
 
-    "\\" <> rest ->
-      case string.pop_grapheme(rest) {
-        Ok(#(grapheme, rest)) -> {
-          let to_move = string.length(grapheme) + 1
+    <<"\\", rest:bits>> ->
+      case rest {
+        <<_grapheme, rest:bits>> -> {
+          // grapheme is always 1 byte + 1
+          let to_move = 1 + 1
           let slice = slice + to_move
 
           advance(lexer, rest, to_move)
           |> lex_string(position, slice, closing_quote, emit)
         }
-        Error(_) ->
+        <<>> ->
           advance(lexer, rest, 1)
           |> lex_string(position, slice + 1, closing_quote, emit)
+        _ -> panic as { "lexer.source must be byte aligned" }
       }
 
-    "" -> {
-      let content = slice_bytes(lexer.original, position.offset + 1, slice)
+    <<>> -> {
+      let assert Ok(content) =
+        bit_array.slice(lexer.original, position.offset + 1, slice)
       #(lexer, #(UnterminatedString(content), position))
     }
 
@@ -647,28 +671,29 @@ fn lex_string(
 
 fn consume_string(
   lexer: Lexer,
-  rest: String,
+  rest: BitArray,
   position: Position,
   slice: Int,
-  emit: fn(String) -> Token,
+  emit: fn(BitArray) -> Token,
 ) {
-  let content = slice_bytes(lexer.original, position.offset + 1, slice)
+  let assert Ok(content) =
+    bit_array.slice(lexer.original, position.offset + 1, slice)
   #(advance(lexer, rest, 1), #(emit(content), position))
 }
 
 fn lex_long_string(lexer: Lexer, position: Position, slice: Int, depth: Int) {
   case lexer.source {
-    "]" <> rest ->
+    <<"]", rest:bits>> ->
       case find_closing_brace(rest, 0) {
         option.Some(#(rest, found)) if found == depth -> {
-          let content =
-            slice_bytes(lexer.original, position.offset + depth + 2, slice)
+          let assert Ok(content) =
+            bit_array.slice(lexer.original, position.offset + depth + 2, slice)
 
           #(advance(lexer, rest, depth + 2), #(LongString(content), position))
         }
 
         option.Some(#(rest, found)) ->
-          advance(lexer, "]" <> rest, found + 1)
+          advance(lexer, <<"]", rest:bits>>, found + 1)
           |> lex_long_string(position, slice + found + 1, depth)
 
         option.None ->
@@ -676,13 +701,13 @@ fn lex_long_string(lexer: Lexer, position: Position, slice: Int, depth: Int) {
           |> lex_long_string(position, slice + 1, depth)
       }
 
-    "\n" <> rest ->
+    <<"\n", rest:bits>> ->
       advance_line(lexer, rest, 1)
       |> lex_long_string(position, slice + 1, depth)
 
-    "" -> {
-      let content =
-        slice_bytes(lexer.original, position.offset + depth + 2, slice)
+    <<>> -> {
+      let assert Ok(content) =
+        bit_array.slice(lexer.original, position.offset + depth + 2, slice)
       #(
         advance(lexer, lexer.source, 1),
         #(UnterminatedLongString(content), position),
@@ -696,23 +721,23 @@ fn lex_long_string(lexer: Lexer, position: Position, slice: Int, depth: Int) {
 }
 
 fn find_opening_brace(
-  content: String,
+  content: BitArray,
   current: Int,
-) -> option.Option(#(String, Int)) {
+) -> option.Option(#(BitArray, Int)) {
   case content {
-    "[" <> rest -> option.Some(#(rest, current))
-    "=" <> rest -> find_opening_brace(rest, current + 1)
+    <<"[", rest:bits>> -> option.Some(#(rest, current))
+    <<"=", rest:bits>> -> find_opening_brace(rest, current + 1)
     _ -> option.None
   }
 }
 
 fn find_closing_brace(
-  content: String,
+  content: BitArray,
   current: Int,
-) -> option.Option(#(String, Int)) {
+) -> option.Option(#(BitArray, Int)) {
   case content {
-    "]" <> rest -> option.Some(#(rest, current))
-    "=" <> rest -> find_closing_brace(rest, current + 1)
+    <<"]", rest:bits>> -> option.Some(#(rest, current))
+    <<"=", rest:bits>> -> find_closing_brace(rest, current + 1)
     _ -> option.None
   }
 }
@@ -723,73 +748,74 @@ fn lex_lowercase_word(
   slice: Int,
 ) -> #(Lexer, String) {
   case lexer.source {
-    "a" <> rest
-    | "b" <> rest
-    | "c" <> rest
-    | "d" <> rest
-    | "e" <> rest
-    | "f" <> rest
-    | "g" <> rest
-    | "h" <> rest
-    | "i" <> rest
-    | "j" <> rest
-    | "k" <> rest
-    | "l" <> rest
-    | "m" <> rest
-    | "n" <> rest
-    | "o" <> rest
-    | "p" <> rest
-    | "q" <> rest
-    | "r" <> rest
-    | "s" <> rest
-    | "t" <> rest
-    | "u" <> rest
-    | "v" <> rest
-    | "w" <> rest
-    | "x" <> rest
-    | "y" <> rest
-    | "z" <> rest
-    | "A" <> rest
-    | "B" <> rest
-    | "C" <> rest
-    | "D" <> rest
-    | "E" <> rest
-    | "F" <> rest
-    | "G" <> rest
-    | "H" <> rest
-    | "I" <> rest
-    | "J" <> rest
-    | "K" <> rest
-    | "L" <> rest
-    | "M" <> rest
-    | "N" <> rest
-    | "O" <> rest
-    | "P" <> rest
-    | "Q" <> rest
-    | "R" <> rest
-    | "S" <> rest
-    | "T" <> rest
-    | "U" <> rest
-    | "V" <> rest
-    | "W" <> rest
-    | "X" <> rest
-    | "Y" <> rest
-    | "Z" <> rest
-    | "0" <> rest
-    | "1" <> rest
-    | "2" <> rest
-    | "3" <> rest
-    | "4" <> rest
-    | "5" <> rest
-    | "6" <> rest
-    | "7" <> rest
-    | "8" <> rest
-    | "9" <> rest
-    | "_" <> rest ->
+    <<"a", rest:bits>>
+    | <<"b", rest:bits>>
+    | <<"c", rest:bits>>
+    | <<"d", rest:bits>>
+    | <<"e", rest:bits>>
+    | <<"f", rest:bits>>
+    | <<"g", rest:bits>>
+    | <<"h", rest:bits>>
+    | <<"i", rest:bits>>
+    | <<"j", rest:bits>>
+    | <<"k", rest:bits>>
+    | <<"l", rest:bits>>
+    | <<"m", rest:bits>>
+    | <<"n", rest:bits>>
+    | <<"o", rest:bits>>
+    | <<"p", rest:bits>>
+    | <<"q", rest:bits>>
+    | <<"r", rest:bits>>
+    | <<"s", rest:bits>>
+    | <<"t", rest:bits>>
+    | <<"u", rest:bits>>
+    | <<"v", rest:bits>>
+    | <<"w", rest:bits>>
+    | <<"x", rest:bits>>
+    | <<"y", rest:bits>>
+    | <<"z", rest:bits>>
+    | <<"A", rest:bits>>
+    | <<"B", rest:bits>>
+    | <<"C", rest:bits>>
+    | <<"D", rest:bits>>
+    | <<"E", rest:bits>>
+    | <<"F", rest:bits>>
+    | <<"G", rest:bits>>
+    | <<"H", rest:bits>>
+    | <<"I", rest:bits>>
+    | <<"J", rest:bits>>
+    | <<"K", rest:bits>>
+    | <<"L", rest:bits>>
+    | <<"M", rest:bits>>
+    | <<"N", rest:bits>>
+    | <<"O", rest:bits>>
+    | <<"P", rest:bits>>
+    | <<"Q", rest:bits>>
+    | <<"R", rest:bits>>
+    | <<"S", rest:bits>>
+    | <<"T", rest:bits>>
+    | <<"U", rest:bits>>
+    | <<"V", rest:bits>>
+    | <<"W", rest:bits>>
+    | <<"X", rest:bits>>
+    | <<"Y", rest:bits>>
+    | <<"Z", rest:bits>>
+    | <<"0", rest:bits>>
+    | <<"1", rest:bits>>
+    | <<"2", rest:bits>>
+    | <<"3", rest:bits>>
+    | <<"4", rest:bits>>
+    | <<"5", rest:bits>>
+    | <<"6", rest:bits>>
+    | <<"7", rest:bits>>
+    | <<"8", rest:bits>>
+    | <<"9", rest:bits>>
+    | <<"_", rest:bits>> ->
       advance(lexer, rest, 1)
       |> lex_lowercase_word(start, slice + 1)
     _ -> {
-      let name = slice_bytes(lexer.original, start, slice)
+      let assert Ok(name) = bit_array.slice(lexer.original, start, slice)
+      let assert Ok(name) = bit_array.to_string(name)
       #(lexer, name)
     }
   }
@@ -801,73 +827,74 @@ fn lex_uppercase_word(
   slice: Int,
 ) -> #(Lexer, String) {
   case lexer.source {
-    "a" <> rest
-    | "b" <> rest
-    | "c" <> rest
-    | "d" <> rest
-    | "e" <> rest
-    | "f" <> rest
-    | "g" <> rest
-    | "h" <> rest
-    | "i" <> rest
-    | "j" <> rest
-    | "k" <> rest
-    | "l" <> rest
-    | "m" <> rest
-    | "n" <> rest
-    | "o" <> rest
-    | "p" <> rest
-    | "q" <> rest
-    | "r" <> rest
-    | "s" <> rest
-    | "t" <> rest
-    | "u" <> rest
-    | "v" <> rest
-    | "w" <> rest
-    | "x" <> rest
-    | "y" <> rest
-    | "z" <> rest
-    | "A" <> rest
-    | "B" <> rest
-    | "C" <> rest
-    | "D" <> rest
-    | "E" <> rest
-    | "F" <> rest
-    | "G" <> rest
-    | "H" <> rest
-    | "I" <> rest
-    | "J" <> rest
-    | "K" <> rest
-    | "L" <> rest
-    | "M" <> rest
-    | "N" <> rest
-    | "O" <> rest
-    | "P" <> rest
-    | "Q" <> rest
-    | "R" <> rest
-    | "S" <> rest
-    | "T" <> rest
-    | "U" <> rest
-    | "V" <> rest
-    | "W" <> rest
-    | "X" <> rest
-    | "Y" <> rest
-    | "Z" <> rest
-    | "0" <> rest
-    | "1" <> rest
-    | "2" <> rest
-    | "3" <> rest
-    | "4" <> rest
-    | "5" <> rest
-    | "6" <> rest
-    | "7" <> rest
-    | "8" <> rest
-    | "9" <> rest
-    | "_" <> rest ->
+    <<"a", rest:bits>>
+    | <<"b", rest:bits>>
+    | <<"c", rest:bits>>
+    | <<"d", rest:bits>>
+    | <<"e", rest:bits>>
+    | <<"f", rest:bits>>
+    | <<"g", rest:bits>>
+    | <<"h", rest:bits>>
+    | <<"i", rest:bits>>
+    | <<"j", rest:bits>>
+    | <<"k", rest:bits>>
+    | <<"l", rest:bits>>
+    | <<"m", rest:bits>>
+    | <<"n", rest:bits>>
+    | <<"o", rest:bits>>
+    | <<"p", rest:bits>>
+    | <<"q", rest:bits>>
+    | <<"r", rest:bits>>
+    | <<"s", rest:bits>>
+    | <<"t", rest:bits>>
+    | <<"u", rest:bits>>
+    | <<"v", rest:bits>>
+    | <<"w", rest:bits>>
+    | <<"x", rest:bits>>
+    | <<"y", rest:bits>>
+    | <<"z", rest:bits>>
+    | <<"A", rest:bits>>
+    | <<"B", rest:bits>>
+    | <<"C", rest:bits>>
+    | <<"D", rest:bits>>
+    | <<"E", rest:bits>>
+    | <<"F", rest:bits>>
+    | <<"G", rest:bits>>
+    | <<"H", rest:bits>>
+    | <<"I", rest:bits>>
+    | <<"J", rest:bits>>
+    | <<"K", rest:bits>>
+    | <<"L", rest:bits>>
+    | <<"M", rest:bits>>
+    | <<"N", rest:bits>>
+    | <<"O", rest:bits>>
+    | <<"P", rest:bits>>
+    | <<"Q", rest:bits>>
+    | <<"R", rest:bits>>
+    | <<"S", rest:bits>>
+    | <<"T", rest:bits>>
+    | <<"U", rest:bits>>
+    | <<"V", rest:bits>>
+    | <<"W", rest:bits>>
+    | <<"X", rest:bits>>
+    | <<"Y", rest:bits>>
+    | <<"Z", rest:bits>>
+    | <<"0", rest:bits>>
+    | <<"1", rest:bits>>
+    | <<"2", rest:bits>>
+    | <<"3", rest:bits>>
+    | <<"4", rest:bits>>
+    | <<"5", rest:bits>>
+    | <<"6", rest:bits>>
+    | <<"7", rest:bits>>
+    | <<"8", rest:bits>>
+    | <<"9", rest:bits>>
+    | <<"_", rest:bits>> ->
       advance(lexer, rest, 1)
       |> lex_uppercase_word(start, slice + 1)
     _ -> {
-      let name = slice_bytes(lexer.original, start, slice)
+      let assert Ok(name) = bit_array.slice(lexer.original, start, slice)
+      let assert Ok(name) = bit_array.to_string(name)
       #(lexer, name)
     }
   }
@@ -875,72 +902,73 @@ fn lex_uppercase_word(
 
 fn lex_discard_name(lexer: Lexer, start: Int, slice: Int) -> #(Lexer, String) {
   case lexer.source {
-    "a" <> rest
-    | "b" <> rest
-    | "c" <> rest
-    | "d" <> rest
-    | "e" <> rest
-    | "f" <> rest
-    | "g" <> rest
-    | "h" <> rest
-    | "i" <> rest
-    | "j" <> rest
-    | "k" <> rest
-    | "l" <> rest
-    | "m" <> rest
-    | "n" <> rest
-    | "o" <> rest
-    | "p" <> rest
-    | "q" <> rest
-    | "r" <> rest
-    | "s" <> rest
-    | "t" <> rest
-    | "u" <> rest
-    | "v" <> rest
-    | "w" <> rest
-    | "x" <> rest
-    | "y" <> rest
-    | "z" <> rest
-    | "A" <> rest
-    | "B" <> rest
-    | "C" <> rest
-    | "D" <> rest
-    | "E" <> rest
-    | "F" <> rest
-    | "G" <> rest
-    | "H" <> rest
-    | "I" <> rest
-    | "J" <> rest
-    | "K" <> rest
-    | "L" <> rest
-    | "M" <> rest
-    | "N" <> rest
-    | "O" <> rest
-    | "P" <> rest
-    | "Q" <> rest
-    | "R" <> rest
-    | "S" <> rest
-    | "T" <> rest
-    | "U" <> rest
-    | "V" <> rest
-    | "W" <> rest
-    | "X" <> rest
-    | "Y" <> rest
-    | "Z" <> rest
-    | "0" <> rest
-    | "1" <> rest
-    | "2" <> rest
-    | "3" <> rest
-    | "4" <> rest
-    | "5" <> rest
-    | "6" <> rest
-    | "7" <> rest
-    | "8" <> rest
-    | "9" <> rest
-    | "_" <> rest ->
+    <<"a", rest:bits>>
+    | <<"b", rest:bits>>
+    | <<"c", rest:bits>>
+    | <<"d", rest:bits>>
+    | <<"e", rest:bits>>
+    | <<"f", rest:bits>>
+    | <<"g", rest:bits>>
+    | <<"h", rest:bits>>
+    | <<"i", rest:bits>>
+    | <<"j", rest:bits>>
+    | <<"k", rest:bits>>
+    | <<"l", rest:bits>>
+    | <<"m", rest:bits>>
+    | <<"n", rest:bits>>
+    | <<"o", rest:bits>>
+    | <<"p", rest:bits>>
+    | <<"q", rest:bits>>
+    | <<"r", rest:bits>>
+    | <<"s", rest:bits>>
+    | <<"t", rest:bits>>
+    | <<"u", rest:bits>>
+    | <<"v", rest:bits>>
+    | <<"w", rest:bits>>
+    | <<"x", rest:bits>>
+    | <<"y", rest:bits>>
+    | <<"z", rest:bits>>
+    | <<"A", rest:bits>>
+    | <<"B", rest:bits>>
+    | <<"C", rest:bits>>
+    | <<"D", rest:bits>>
+    | <<"E", rest:bits>>
+    | <<"F", rest:bits>>
+    | <<"G", rest:bits>>
+    | <<"H", rest:bits>>
+    | <<"I", rest:bits>>
+    | <<"J", rest:bits>>
+    | <<"K", rest:bits>>
+    | <<"L", rest:bits>>
+    | <<"M", rest:bits>>
+    | <<"N", rest:bits>>
+    | <<"O", rest:bits>>
+    | <<"P", rest:bits>>
+    | <<"Q", rest:bits>>
+    | <<"R", rest:bits>>
+    | <<"S", rest:bits>>
+    | <<"T", rest:bits>>
+    | <<"U", rest:bits>>
+    | <<"V", rest:bits>>
+    | <<"W", rest:bits>>
+    | <<"X", rest:bits>>
+    | <<"Y", rest:bits>>
+    | <<"Z", rest:bits>>
+    | <<"0", rest:bits>>
+    | <<"1", rest:bits>>
+    | <<"2", rest:bits>>
+    | <<"3", rest:bits>>
+    | <<"4", rest:bits>>
+    | <<"5", rest:bits>>
+    | <<"6", rest:bits>>
+    | <<"7", rest:bits>>
+    | <<"8", rest:bits>>
+    | <<"9", rest:bits>>
+    | <<"_", rest:bits>> ->
       advance(lexer, rest, 1) |> lex_discard_name(start, slice + 1)
     _ -> {
-      let name = slice_bytes(lexer.original, start, slice)
+      let assert Ok(name) = bit_array.slice(lexer.original, start, slice)
+      let assert Ok(name) = bit_array.to_string(name)
       #(lexer, name)
     }
   }
@@ -952,35 +980,35 @@ fn lex_int(
   slice: Int,
 ) -> #(Lexer, #(Token, Position), option.Option(#(Token, Position))) {
   case lexer.source {
-    "0" <> rest
-    | "1" <> rest
-    | "2" <> rest
-    | "3" <> rest
-    | "4" <> rest
-    | "5" <> rest
-    | "6" <> rest
-    | "7" <> rest
-    | "8" <> rest
-    | "9" <> rest ->
+    <<"0", rest:bits>>
+    | <<"1", rest:bits>>
+    | <<"2", rest:bits>>
+    | <<"3", rest:bits>>
+    | <<"4", rest:bits>>
+    | <<"5", rest:bits>>
+    | <<"6", rest:bits>>
+    | <<"7", rest:bits>>
+    | <<"8", rest:bits>>
+    | <<"9", rest:bits>> ->
       advance(lexer, rest, 1)
       |> lex_int(start, slice + 1)
 
     // exponential notation
-    "e+" <> rest | "E+" <> rest -> {
+    <<"e+", rest:bits>> | <<"E+", rest:bits>> -> {
       let #(lexer, float) =
         advance(lexer, rest, 2) |> lex_float(start, slice + 2)
 
       #(lexer, float, option.None)
     }
 
-    "e-" <> rest | "E-" <> rest -> {
+    <<"e-", rest:bits>> | <<"E-", rest:bits>> -> {
       let #(lexer, float) =
         advance(lexer, rest, 2) |> lex_float(start, slice + 2)
 
       #(lexer, float, option.None)
     }
 
-    "e" <> rest | "E" <> rest -> {
+    <<"e", rest:bits>> | <<"E", rest:bits>> -> {
       let #(lexer, float) =
         advance(lexer, rest, 1) |> lex_float(start, slice + 1)
 
@@ -988,13 +1016,13 @@ fn lex_int(
     }
 
     // prevent numbers like "0..4" to be mistakenly lexed as a float number
-    ".." <> _rest -> {
+    <<"..", _rest:bits>> -> {
       let #(lexer, int) = consume_int(lexer, start, slice)
       #(lexer, int, option.None)
     }
 
     // float number
-    "." <> rest -> {
+    <<".", rest:bits>> -> {
       let #(lexer, float) =
         advance(lexer, rest, 1) |> lex_float(start, slice + 1)
 
@@ -1006,7 +1034,7 @@ fn lex_int(
       // if the next token is a minus symbol and if it is lex it as a minus operator
       // instead of a negative number
       case rest {
-        "-" <> rest -> {
+        <<"-", rest:bits>> -> {
           let #(lexer, int) = consume_int(lexer, start, slice)
           let minus = token(lexer, Minus)
 
@@ -1020,8 +1048,11 @@ fn lex_int(
   }
 }
 
+/// Precondition: slice is a Lua int 
 fn consume_int(lexer: Lexer, position: Position, slice: Int) {
-  let content = slice_bytes(lexer.original, position.offset, slice)
+  let assert Ok(content) =
+    bit_array.slice(lexer.original, position.offset, slice)
+  let assert Ok(content) = bit_array.to_string(content)
   #(lexer, #(Int(content), position))
 }
 
@@ -1031,48 +1062,52 @@ fn lex_float(
   slice: Int,
 ) -> #(Lexer, #(Token, Position)) {
   case lexer.source {
-    "0" <> rest
-    | "1" <> rest
-    | "2" <> rest
-    | "3" <> rest
-    | "4" <> rest
-    | "5" <> rest
-    | "6" <> rest
-    | "7" <> rest
-    | "8" <> rest
-    | "9" <> rest ->
+    <<"0", rest:bits>>
+    | <<"1", rest:bits>>
+    | <<"2", rest:bits>>
+    | <<"3", rest:bits>>
+    | <<"4", rest:bits>>
+    | <<"5", rest:bits>>
+    | <<"6", rest:bits>>
+    | <<"7", rest:bits>>
+    | <<"8", rest:bits>>
+    | <<"9", rest:bits>> ->
       advance(lexer, rest, 1)
       |> lex_float(start, slice + 1)
 
     // float number in exponential notation
-    "e+" <> rest | "E+" <> rest ->
+    <<"e+", rest:bits>> | <<"E+", rest:bits>> ->
       advance(lexer, rest, 2)
       |> lex_float(start, slice + 2)
 
-    "e-" <> rest | "E-" <> rest ->
+    <<"e-", rest:bits>> | <<"E-", rest:bits>> ->
       advance(lexer, rest, 2)
       |> lex_float(start, slice + 2)
 
-    "e" <> rest | "E" <> rest ->
+    <<"e", rest:bits>> | <<"E", rest:bits>> ->
       advance(lexer, rest, 1) |> lex_float(start, slice + 1)
 
     _ -> consume_float(lexer, start, slice)
   }
 }
 
+/// Precondition: slice is a Lua float 
 fn consume_float(
   lexer: Lexer,
   position: Position,
   slice: Int,
 ) -> #(Lexer, #(Token, Position)) {
-  let content = slice_bytes(lexer.original, position.offset, slice)
+  let assert Ok(content) =
+    bit_array.slice(lexer.original, position.offset, slice)
 
   // handle float with trailing dot
-  let number = case string.ends_with(content, ".") {
-    True -> content <> "0"
-    False -> content
+  let number = case bit_array.slice(content, bit_array.byte_size(content), -1) {
+    Ok(<<".">>) -> <<content:bits, "0">>
+    Ok(_) -> content
+    Error(_nil) -> panic as "unreachable"
   }
 
+  let assert Ok(number) = bit_array.to_string(number)
   #(lexer, #(Float(number), position))
 }
 
@@ -1083,51 +1118,51 @@ fn lex_hexadecimal_int(
 ) -> #(Lexer, #(Token, Position)) {
   case lexer.source {
     // exponential
-    "e+" <> rest | "E+" <> rest ->
+    <<"e+", rest:bits>> | <<"E+", rest:bits>> ->
       advance(lexer, rest, 2) |> lex_hexadecimal_float(start, slice + 2)
 
-    "e-" <> rest | "E-" <> rest ->
+    <<"e-", rest:bits>> | <<"E-", rest:bits>> ->
       advance(lexer, rest, 2) |> lex_hexadecimal_float(start, slice + 2)
 
     // radix
-    "p+" <> rest | "P+" <> rest ->
+    <<"p+", rest:bits>> | <<"P+", rest:bits>> ->
       advance(lexer, rest, 2) |> lex_hexadecimal_float(start, slice + 2)
 
-    "p-" <> rest | "P-" <> rest ->
+    <<"p-", rest:bits>> | <<"P-", rest:bits>> ->
       advance(lexer, rest, 2) |> lex_hexadecimal_float(start, slice + 2)
 
-    "p" <> rest | "P" <> rest ->
+    <<"p", rest:bits>> | <<"P", rest:bits>> ->
       advance(lexer, rest, 1) |> lex_hexadecimal_float(start, slice + 1)
 
-    "0" <> rest
-    | "1" <> rest
-    | "2" <> rest
-    | "3" <> rest
-    | "4" <> rest
-    | "5" <> rest
-    | "6" <> rest
-    | "7" <> rest
-    | "8" <> rest
-    | "9" <> rest
-    | "a" <> rest
-    | "A" <> rest
-    | "b" <> rest
-    | "B" <> rest
-    | "c" <> rest
-    | "C" <> rest
-    | "d" <> rest
-    | "D" <> rest
-    | "e" <> rest
-    | "E" <> rest
-    | "f" <> rest
-    | "F" <> rest ->
+    <<"0", rest:bits>>
+    | <<"1", rest:bits>>
+    | <<"2", rest:bits>>
+    | <<"3", rest:bits>>
+    | <<"4", rest:bits>>
+    | <<"5", rest:bits>>
+    | <<"6", rest:bits>>
+    | <<"7", rest:bits>>
+    | <<"8", rest:bits>>
+    | <<"9", rest:bits>>
+    | <<"a", rest:bits>>
+    | <<"A", rest:bits>>
+    | <<"b", rest:bits>>
+    | <<"B", rest:bits>>
+    | <<"c", rest:bits>>
+    | <<"C", rest:bits>>
+    | <<"d", rest:bits>>
+    | <<"D", rest:bits>>
+    | <<"e", rest:bits>>
+    | <<"E", rest:bits>>
+    | <<"f", rest:bits>>
+    | <<"F", rest:bits>> ->
       advance(lexer, rest, 1) |> lex_hexadecimal_int(start, slice + 1)
 
     // prevent numbers like "0xA..4" to be mistakenly lexed as an hexadecimal float number
-    ".." <> _rest -> consume_int(lexer, start, slice)
+    <<"..", _rest:bits>> -> consume_int(lexer, start, slice)
 
     // hexadecimal float number
-    "." <> rest ->
+    <<".", rest:bits>> ->
       advance(lexer, rest, 1) |> lex_hexadecimal_float(start, slice + 1)
 
     _ -> consume_int(lexer, start, slice)
@@ -1141,51 +1176,51 @@ fn lex_hexadecimal_float(
 ) -> #(Lexer, #(Token, Position)) {
   case lexer.source {
     // exponential
-    "e+" <> rest | "E+" <> rest ->
+    <<"e+", rest:bits>> | <<"E+", rest:bits>> ->
       advance(lexer, rest, 2) |> lex_hexadecimal_float(start, slice + 2)
 
-    "e-" <> rest | "E-" <> rest ->
+    <<"e-", rest:bits>> | <<"E-", rest:bits>> ->
       advance(lexer, rest, 2) |> lex_hexadecimal_float(start, slice + 2)
 
     // radix
-    "p+" <> rest | "P+" <> rest ->
+    <<"p+", rest:bits>> | <<"P+", rest:bits>> ->
       advance(lexer, rest, 2) |> lex_hexadecimal_float(start, slice + 2)
 
-    "p-" <> rest | "P-" <> rest ->
+    <<"p-", rest:bits>> | <<"P-", rest:bits>> ->
       advance(lexer, rest, 2) |> lex_hexadecimal_float(start, slice + 2)
 
-    "p" <> rest | "P" <> rest ->
+    <<"p", rest:bits>> | <<"P", rest:bits>> ->
       advance(lexer, rest, 1) |> lex_hexadecimal_float(start, slice + 1)
 
-    "0" <> rest
-    | "1" <> rest
-    | "2" <> rest
-    | "3" <> rest
-    | "4" <> rest
-    | "5" <> rest
-    | "6" <> rest
-    | "7" <> rest
-    | "8" <> rest
-    | "9" <> rest
-    | "a" <> rest
-    | "A" <> rest
-    | "b" <> rest
-    | "B" <> rest
-    | "c" <> rest
-    | "C" <> rest
-    | "d" <> rest
-    | "D" <> rest
-    | "e" <> rest
-    | "E" <> rest
-    | "f" <> rest
-    | "F" <> rest ->
+    <<"0", rest:bits>>
+    | <<"1", rest:bits>>
+    | <<"2", rest:bits>>
+    | <<"3", rest:bits>>
+    | <<"4", rest:bits>>
+    | <<"5", rest:bits>>
+    | <<"6", rest:bits>>
+    | <<"7", rest:bits>>
+    | <<"8", rest:bits>>
+    | <<"9", rest:bits>>
+    | <<"a", rest:bits>>
+    | <<"A", rest:bits>>
+    | <<"b", rest:bits>>
+    | <<"B", rest:bits>>
+    | <<"c", rest:bits>>
+    | <<"C", rest:bits>>
+    | <<"d", rest:bits>>
+    | <<"D", rest:bits>>
+    | <<"e", rest:bits>>
+    | <<"E", rest:bits>>
+    | <<"f", rest:bits>>
+    | <<"F", rest:bits>> ->
       advance(lexer, rest, 1) |> lex_hexadecimal_float(start, slice + 1)
 
     _ -> consume_float(lexer, start, slice)
   }
 }
 
-fn advance(lexer: Lexer, source: String, offset: Int) -> Lexer {
+fn advance(lexer: Lexer, source: BitArray, offset: Int) -> Lexer {
   Lexer(
     ..lexer,
     source:,
@@ -1194,7 +1229,7 @@ fn advance(lexer: Lexer, source: String, offset: Int) -> Lexer {
   )
 }
 
-fn advance_line(lexer: Lexer, source: String, offset: Int) -> Lexer {
+fn advance_line(lexer: Lexer, source: BitArray, offset: Int) -> Lexer {
   Lexer(
     ..lexer,
     source:,
@@ -1208,95 +1243,95 @@ fn token(lexer: Lexer, token: Token) -> #(Token, Position) {
   #(token, Position(lexer.offset, lexer.column, lexer.line))
 }
 
-pub fn token_to_string(token: Token) -> String {
+pub fn token_to_bits(token: Token) -> BitArray {
   case token {
     // literals
-    Identifier(str) -> str
+    Identifier(str) -> bit_array.from_string(str)
     String(str) -> str
-    LongString(str) -> "[[" <> str <> "]]"
-    Int(str) -> str
-    Float(str) -> str
-    Comment(str) -> "--" <> str
-    LongComment(str) -> "--[[" <> str <> "]]"
+    LongString(str) -> <<"[[", str:bits, "]]">>
+    Int(str) -> bit_array.from_string(str)
+    Float(str) -> bit_array.from_string(str)
+    Comment(str) -> <<"--", str:bits>>
+    LongComment(str) -> <<"--[[", str:bits, "]]">>
 
     // keywords
-    And -> "and"
-    Break -> "break"
-    Do -> "do"
-    Else -> "else"
-    Elseif -> "elseif"
-    End -> "end"
-    BFalse -> "false"
-    For -> "for"
-    Function -> "function"
-    Goto -> "goto"
-    If -> "if"
-    In -> "in"
-    Local -> "local"
-    Nil -> "nil"
-    Not -> "not"
-    Or -> "or"
-    Repeat -> "repeat"
-    Return -> "return"
-    Then -> "then"
-    BTrue -> "true"
-    Until -> "until"
-    While -> "while"
+    And -> <<"and">>
+    Break -> <<"break">>
+    Do -> <<"do">>
+    Else -> <<"else">>
+    Elseif -> <<"elseif">>
+    End -> <<"end">>
+    BFalse -> <<"false">>
+    For -> <<"for">>
+    Function -> <<"function">>
+    Goto -> <<"goto">>
+    If -> <<"if">>
+    In -> <<"in">>
+    Local -> <<"local">>
+    Nil -> <<"nil">>
+    Not -> <<"not">>
+    Or -> <<"or">>
+    Repeat -> <<"repeat">>
+    Return -> <<"return">>
+    Then -> <<"then">>
+    BTrue -> <<"true">>
+    Until -> <<"until">>
+    While -> <<"while">>
 
     // Arithmetic operators
-    Plus -> "+"
-    Minus -> "-"
-    Star -> "*"
-    Slash -> "/"
-    SlashSlash -> "//"
-    Percent -> "%"
-    Circumflex -> "^"
+    Plus -> <<"+">>
+    Minus -> <<"-">>
+    Star -> <<"*">>
+    Slash -> <<"/">>
+    SlashSlash -> <<"//">>
+    Percent -> <<"%">>
+    Circumflex -> <<"^">>
 
     // Relational operators
-    EqualEqual -> "=="
-    NotEqual -> "~="
-    Greater -> ">"
-    GreaterEqual -> ">="
-    Less -> "<"
-    LessEqual -> "<="
+    EqualEqual -> <<"==">>
+    NotEqual -> <<"~=">>
+    Greater -> <<">">>
+    GreaterEqual -> <<">=">>
+    Less -> <<"<">>
+    LessEqual -> <<"<=">>
 
     // Grouping
-    LeftParen -> "("
-    RightParen -> ")"
-    LeftBrace -> "{"
-    RightBrace -> "}"
-    LeftSquare -> "["
-    RightSquare -> "]"
+    LeftParen -> <<"(">>
+    RightParen -> <<")">>
+    LeftBrace -> <<"{">>
+    RightBrace -> <<"}">>
+    LeftSquare -> <<"[">>
+    RightSquare -> <<"]">>
 
     // Bitwise operators
-    Amper -> "&"
-    VBar -> "|"
-    Tilde -> "~"
-    GreaterGreater -> ">>"
-    LessLess -> "<<"
+    Amper -> <<"&">>
+    VBar -> <<"|">>
+    Tilde -> <<"~">>
+    GreaterGreater -> <<">>">>
+    LessLess -> <<"<<">>
 
     // other operators
-    DotDot -> ".."
-    Hash -> "#"
+    DotDot -> <<"..">>
+    Hash -> <<"#">>
 
     // Punctuation
-    Equal -> "="
-    Colon -> ":"
-    ColonColon -> "::"
-    Semicolon -> ";"
-    Comma -> ","
-    Dot -> "."
-    DotDotDot -> "..."
+    Equal -> <<"=">>
+    Colon -> <<":">>
+    ColonColon -> <<"::">>
+    Semicolon -> <<";">>
+    Comma -> <<",">>
+    Dot -> <<".">>
+    DotDotDot -> <<"...">>
 
     // whitespace
     Space(str) -> str
 
-    EndOfFile -> ""
+    EndOfFile -> <<>>
 
     // Invalid code
-    UnterminatedString(str) -> "\"" <> str
-    UnterminatedLongString(str) -> "[[" <> str
-    UnterminatedLongComment(str) -> "--[[" <> str
+    UnterminatedString(str) -> <<"\"", str:bits>>
+    UnterminatedLongString(str) -> <<"[[", str:bits>>
+    UnterminatedLongComment(str) -> <<"--[[", str:bits>>
     UnexpectedGrapheme(str) -> str
   }
 }
@@ -1304,21 +1339,29 @@ pub fn token_to_string(token: Token) -> String {
 type BinaryPattern
 
 @external(erlang, "lug_ffi", "compile_binary_pattern")
-@external(javascript, "../lug_ffi.mjs", "compile_binary_patterns")
+@external(javascript, "../lug_ffi.mjs", "compile_binary_pattern")
 fn compile_binary_pattern(patterns: List(String)) -> BinaryPattern
 
 @external(erlang, "lug_ffi", "split_before")
 @external(javascript, "../lug_ffi.mjs", "split_before")
-fn split_before(pattern: BinaryPattern, string: String) -> #(String, String)
+fn split_before(
+  pattern: BinaryPattern,
+  string: BitArray,
+) -> #(BitArray, BitArray)
 
-fn split_until_new_line(lexer: Lexer, string: String) -> #(String, String) {
+fn split_until_new_line(
+  lexer: Lexer,
+  string: BitArray,
+) -> #(BitArray, BitArray) {
   split_before(lexer.new_lines, string)
 }
 
-@external(erlang, "binary", "part")
-@external(javascript, "../lug_ffi.mjs", "slice_bytes")
-fn slice_bytes(string: String, from byte: Int, sized bytes: Int) -> String
+fn drop_byte(string: BitArray) -> BitArray {
+  case string {
+    <<_byte, rest:bits>> -> rest
+    _ -> string
+  }
+}
 
-@external(erlang, "lug_ffi", "drop_byte")
-@external(javascript, "../lug_ffi.mjs", "drop_byte")
-fn drop_byte(string: String) -> String
+@external(erlang, "lug_ffi", "nil")
+@external(javascript, "../lug_ffi.mjs", "nil")
