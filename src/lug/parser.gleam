@@ -1113,7 +1113,7 @@ fn do_comma_delimited_until(
 }
 
 fn token_offset(start: lexer.Position, token: lexer.Token) -> lexer.Position {
-  let to_add = lexer.token_to_string(token) |> bit_array.byte_size
+  let to_add = lexer.token_to_bits(token) |> bit_array.byte_size
 
   lexer.Position(
     offset: to_add + start.offset,

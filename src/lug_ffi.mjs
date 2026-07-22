@@ -37,6 +37,4 @@ function matchesAt(bits, pattern, index) {
     return true;
 }
 
-export function nil() {
-    return undefined;
 }

@@ -140,7 +140,7 @@ pub fn new(source: BitArray) -> Result(Lexer, Nil) {
         new_lines: compile_binary_pattern(["\r", "\n"]),
       )
       |> Ok
-    _ -> Error(nil())
+    _ -> Error(Nil)
   }
 }
 
@@ -1243,7 +1243,7 @@ fn token(lexer: Lexer, token: Token) -> #(Token, Position) {
   #(token, Position(lexer.offset, lexer.column, lexer.line))
 }
 
-pub fn token_to_string(token: Token) -> BitArray {
+pub fn token_to_bits(token: Token) -> BitArray {
   case token {
     // literals
     Identifier(str) -> bit_array.from_string(str)
@@ -1365,4 +1365,3 @@ fn drop_byte(string: BitArray) -> BitArray {
 
 @external(erlang, "lug_ffi", "nil")
 @external(javascript, "../lug_ffi.mjs", "nil")
-fn nil() -> Nil

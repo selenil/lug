@@ -15,4 +15,3 @@ split_before(Pattern, String) ->
             {binary:part(String, 0, Index), binary:part(String, Index, byte_size(String) - Index)}
     end.
 
-nil() -> nil.
