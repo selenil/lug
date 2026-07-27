@@ -1,9 +1,12 @@
 //// Compiler for Lua 5.4
 
 import gleam/dict
+import gleam/float
+import gleam/int
 import gleam/list
 import gleam/option
 import gleam/result
+import gleam/string
 import lug/parser
 
 pub opaque type Chunk {
@@ -1267,7 +1270,114 @@ fn unary_operation(
 }
 
 fn parse_number(number: String) -> Constant {
-  todo
+  case number {
+    // hexadecimal number
+    "0x" <> number | "0X" <> number -> {
+      let #(number, float_part, radix) = parse_hexadecimal_number(number)
+      let assert Ok(number) = int.base_parse(number, 16)
+
+      case float_part, radix {
+        option.None, option.None -> Int(number)
+        option.None, option.Some(radix) ->
+          Float(radix_point(int.to_float(number), radix))
+        option.Some(float_part), option.None ->
+          Float(hexadecimal_float(int.to_float(number), float_part))
+        option.Some(float_part), option.Some(radix) ->
+          hexadecimal_float(int.to_float(number), float_part)
+          |> radix_point(radix)
+          |> Float
+      }
+    }
+
+    // decimal number
+    _ -> {
+      case string.contains(number, ".") {
+        True -> {
+          let assert Ok(number) = float.parse(number)
+          Float(number)
+        }
+        False ->
+          case string.split_once(number, "e") {
+            Ok(#(number, exponent)) -> {
+              let assert Ok(number) = int.parse(number)
+              Float(exponential(int.to_float(number), exponent))
+            }
+            Error(_) ->
+              case string.split_once(number, "E") {
+                Ok(#(number, exponent)) -> {
+                  let assert Ok(number) = int.parse(number)
+                  Float(exponential(int.to_float(number), exponent))
+                }
+                Error(_) -> {
+                  let assert Ok(number) = int.parse(number)
+                  Int(number)
+                }
+              }
+          }
+      }
+    }
+  }
+}
+
+fn exponential(number: Float, exponent: String) -> Float {
+  let assert Ok(exponent) = int.parse(exponent) |> result.map(int.to_float)
+  let assert Ok(times) = int.power(10, exponent)
+
+  number *. times
+}
+
+fn radix_point(number: Float, radix: String) -> Float {
+  let assert Ok(radix) = int.parse(radix) |> result.map(int.to_float)
+  let assert Ok(times) = int.power(2, radix)
+
+  number *. times
+}
+
+fn hexadecimal_float(number: Float, float_part: String) -> Float {
+  list.index_fold(string.to_graphemes(float_part), number, fn(acc, digit, i) {
+    let assert Ok(digit) = int.base_parse(digit, 16) |> result.map(int.to_float)
+    let assert Ok(by) = int.power(16, int.to_float(i + 1))
+
+    acc +. digit /. by
+  })
+}
+
+fn parse_hexadecimal_number(
+  number: String,
+) -> #(String, option.Option(String), option.Option(String)) {
+  let #(number, float_part) = case string.split_once(number, ".") {
+    Ok(#(number, float_part)) -> #(number, option.Some(float_part))
+    Error(_) -> #(number, option.None)
+  }
+
+  case float_part {
+    option.None ->
+      case string.split_once(number, "p") {
+        Ok(#(number, radix)) -> #(number, float_part, option.Some(radix))
+        Error(_) ->
+          case string.split_once(number, "P") {
+            Ok(#(number, radix)) -> #(number, float_part, option.Some(radix))
+            Error(_) -> #(number, float_part, option.None)
+          }
+      }
+    option.Some(float_part) ->
+      case string.split_once(float_part, "p") {
+        Ok(#(float_part, radix)) -> #(
+          number,
+          option.Some(float_part),
+          option.Some(radix),
+        )
+        Error(_) ->
+          case string.split_once(number, "P") {
+            Ok(#(number, radix)) -> #(
+              number,
+              option.Some(float_part),
+              option.Some(radix),
+            )
+            Error(_) -> #(number, option.Some(float_part), option.None)
+          }
+      }
+  }
 }
 
 fn advance(context: Context) -> Context {
