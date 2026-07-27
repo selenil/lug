@@ -13,6 +13,7 @@ pub opaque type Chunk {
     instructions: List(Instruction),
     prototypes: List(Chunk),
     upvals: List(Upval),
+    constant_registers: List(AttributeRegister),
     is_vararg: Bool,
     span: Span,
   )
@@ -113,6 +114,7 @@ pub type Context {
   Context(
     vars: dict.Dict(String, Variable),
     statement_bindings: dict.Dict(#(String, parser.Span), Int),
+    constant_registers: List(AttributeRegister),
     next_register: Int,
     next_global: Int,
     prototypes: List(Chunk),
@@ -125,6 +127,11 @@ pub type Variable {
   Global(Int)
 }
 
+pub type AttributeRegister {
+  Const(Int)
+  Close(Int)
+}
+
 pub fn compile(code: String) -> Result(Chunk, parser.Error) {
   parser.parse(code) |> result.map(compile_ast)
 }
@@ -134,14 +141,15 @@ pub fn compile_ast(ast: parser.Block) -> Chunk {
 }
 
 fn do_compile(ast: parser.Block, context: Context, chunk: Chunk) -> Chunk {
-  let #(_, instructions) = block(ast, context)
-  Chunk(..chunk, instructions:)
+  let #(context, instructions) = block(ast, context)
+  Chunk(..chunk, instructions:, constant_registers: context.constant_registers)
 }
 
 fn init_context(ast: parser.Block) -> Context {
   Context(
     vars: dict.new(),
     statement_bindings: dict.new(),
+    constant_registers: [],
     next_register: 1,
     next_global: 0,
     prototypes: [],
@@ -224,12 +232,28 @@ fn scan_statement(context: Context, statement: parser.Statement) -> Context {
     parser.Local(_, names, values) ->
       list.fold(values, context, scan_expression)
       |> list.fold(names, _, fn(context, name) {
-        let parser.AttributeName(_, name) = name
-        Context(
-          ..context,
-          next_register: context.next_register + 1,
-          vars: dict.insert(context.vars, name, Local(context.next_register)),
-        )
+        let parser.AttributeName(attribute, name) = name
+        let destination = context.next_register
+        let context =
+          Context(
+            ..context,
+            next_register: context.next_register + 1,
+            vars: dict.insert(context.vars, name, Local(destination)),
+          )
+
+        case attribute {
+          option.None -> context
+          option.Some(parser.Const) ->
+            Context(..context, constant_registers: [
+              Const(destination),
+              ..context.constant_registers
+            ])
+          option.Some(parser.Close) ->
+            Context(..context, constant_registers: [
+              Close(destination),
+              ..context.constant_registers
+            ])
+        }
       })
     parser.Return(_, expressions) ->
       list.fold(expressions, context, scan_expression)
@@ -291,6 +315,7 @@ fn init_chunk(ast: parser.Block) -> Chunk {
     instructions: [],
     prototypes: [],
     upvals: [],
+    constant_registers: [],
     is_vararg: True,
     span: Span(ast.location.start.line, ast.location.end.line),
   )
