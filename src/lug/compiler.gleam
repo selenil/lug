@@ -34,7 +34,7 @@ pub type Instruction {
   GetTable(destination: Int, table: Int, index: Int)
   GetTableUp(destination: Int, upvalue: Int, index: Int)
   SetTable(table: Int, key: Int, value: Int)
-  SetTableUp(index: Int, key: Constant, value: Int)
+  SetTableUp(index: Int, key: Int, value: Int)
   SetField(table: Int, key: Constant, value: Int)
   SetList(table: Int, from: Int, length: Int)
   SetListMulti(table: Int, from: Int, length: Int)
@@ -115,19 +115,23 @@ pub type Span {
 
 pub type Context {
   Context(
-    vars: dict.Dict(String, Variable),
-    statement_bindings: dict.Dict(#(String, parser.Span), Int),
+    scopes: dict.Dict(Int, Scope),
     constant_registers: List(AttributeRegister),
     next_register: Int,
     next_global: Int,
+    next_scope: Int,
+    parent_scope: Int,
     prototypes: List(Chunk),
   )
+}
+
+pub type Scope {
+  Scope(vars: dict.Dict(String, Variable), parent: Int)
 }
 
 pub type Variable {
   Local(Int)
   Upvalue(Int)
-  Global(Int)
 }
 
 pub type AttributeRegister {
@@ -149,19 +153,38 @@ fn do_compile(ast: parser.Block, context: Context, chunk: Chunk) -> Chunk {
 }
 
 fn init_context(ast: parser.Block) -> Context {
-  Context(
-    vars: dict.new(),
-    statement_bindings: dict.new(),
-    constant_registers: [],
-    next_register: 1,
-    next_global: 0,
-    prototypes: [],
-  )
-  |> scan_block(ast)
+  let initial =
+    Context(
+      scopes: dict.new(),
+      constant_registers: [],
+      next_register: 1,
+      next_global: 0,
+      next_scope: 0,
+      parent_scope: -1,
+      prototypes: [],
+    )
+    |> scan_block(ast)
+
+  // reset scope count to 0 so we traverse the scope in the same order when compiling
+  Context(..initial, next_scope: 0)
 }
 
 fn scan_block(context: Context, ast: parser.Block) -> Context {
-  list.fold(ast.statements, context, scan_statement)
+  let scope = context.next_scope
+  let context =
+    Context(
+      ..context,
+      next_scope: context.next_scope + 1,
+      scopes: dict.insert(
+        context.scopes,
+        scope,
+        Scope(dict.new(), context.parent_scope),
+      ),
+      parent_scope: scope,
+    )
+    |> list.fold(ast.statements, _, scan_statement)
+
+  Context(..context, parent_scope: context.parent_scope - 1)
 }
 
 fn scan_statement(context: Context, statement: parser.Statement) -> Context {
@@ -170,7 +193,8 @@ fn scan_statement(context: Context, statement: parser.Statement) -> Context {
       list.fold(names, context, scan_expression)
       |> list.fold(expressions, _, scan_expression)
     parser.FunctionCall(_, function, args) ->
-      scan_expression(context, function) |> list.fold(args, _, scan_expression)
+      scan_expression(context, function)
+      |> list.fold(args, _, scan_expression)
     parser.Label(_, _) -> context
     parser.Break(_) -> context
     parser.Goto(_, _) -> context
@@ -178,7 +202,7 @@ fn scan_statement(context: Context, statement: parser.Statement) -> Context {
     parser.While(_, condition, block) ->
       scan_expression(context, condition) |> scan_block(block)
     parser.Repeat(_, condition, block) ->
-      scan_block(context, block) |> scan_expression(condition)
+      scan_expression(context, condition) |> scan_block(block)
     parser.If(_, condition, then, else_if, else_) -> {
       let context =
         scan_expression(context, condition)
@@ -195,35 +219,52 @@ fn scan_statement(context: Context, statement: parser.Statement) -> Context {
         option.Some(block) -> scan_block(context, block)
       }
     }
-    parser.For(span, identifier, init, limit, step, body) -> {
+    parser.For(_, identifier, init, limit, step, body) -> {
       let context =
-        Context(
-          ..context,
-          statement_bindings: dict.insert(
-            context.statement_bindings,
-            #(identifier, span),
-            context.next_register,
-          ),
-          next_register: context.next_register + 1,
-        )
-      scan_expression(context, init)
-      |> scan_expression(limit)
+        scan_expression(context, init)
+        |> scan_expression(limit)
 
-      case step {
+      let context = case step {
         option.None -> context
         option.Some(step) -> scan_expression(context, step)
       }
+
+      let scope =
+        Scope(
+          dict.from_list([#(identifier, Local(context.next_register))]),
+          context.parent_scope,
+        )
+
+      Context(
+        ..context,
+        scopes: dict.insert(context.scopes, context.next_scope, scope),
+        next_register: context.next_register + 1,
+      )
       |> scan_block(body)
     }
-    parser.ForIn(span, names, in, body) -> {
+    parser.ForIn(_, names, in, body) -> {
+      let context =
+        Context(
+          ..context,
+          scopes: dict.insert(
+            context.scopes,
+            context.next_scope,
+            Scope(dict.new(), context.parent_scope),
+          ),
+        )
+      let assert Ok(scope) = dict.get(context.scopes, context.next_scope)
+
       list.fold(in, context, scan_expression)
       |> list.fold(names, _, fn(context, name) {
         Context(
           ..context,
-          statement_bindings: dict.insert(
-            context.statement_bindings,
-            #(name, span),
-            context.next_register,
+          scopes: dict.insert(
+            context.scopes,
+            context.next_scope,
+            Scope(
+              ..scope,
+              vars: dict.insert(scope.vars, name, Local(context.next_register)),
+            ),
           ),
           next_register: context.next_register + 1,
         )
@@ -237,11 +278,24 @@ fn scan_statement(context: Context, statement: parser.Statement) -> Context {
       |> list.fold(names, _, fn(context, name) {
         let parser.AttributeName(attribute, name) = name
         let destination = context.next_register
+        let assert Ok(scope) = dict.get(context.scopes, context.next_scope - 1)
+
         let context =
           Context(
             ..context,
             next_register: context.next_register + 1,
-            vars: dict.insert(context.vars, name, Local(destination)),
+            scopes: dict.insert(
+              context.scopes,
+              context.next_scope - 1,
+              Scope(
+                ..scope,
+                vars: dict.insert(
+                  scope.vars,
+                  name,
+                  Local(context.next_register),
+                ),
+              ),
+            ),
           )
 
         case attribute {
@@ -270,21 +324,15 @@ fn scan_expression(context: Context, expr: parser.Expression) -> Context {
     parser.BooleanTrue(_) -> context
     parser.Numeral(_, _) -> context
     parser.LiteralString(_, _) -> context
-    parser.Variable(_, name) ->
-      case dict.get(context.vars, name) {
-        Ok(_) -> context
-        Error(_) ->
-          Context(
-            ..context,
-            next_global: context.next_global + 1,
-            vars: dict.insert(context.vars, name, Global(context.next_global)),
-          )
-      }
+    parser.Variable(_, name) -> scan_variable(context, name)
     parser.Vararg(_) -> context
     parser.Function(_, parameters, body) ->
       scan_function(context, parameters, body)
     parser.Call(_, function, args) ->
-      scan_expression(context, function) |> list.fold(args, _, scan_expression)
+      scan_expression(context, function)
+      |> list.fold(args, _, fn(context, expression) {
+        scan_expression(context, expression)
+      })
     parser.Table(_, fields) -> list.fold(fields, context, scan_field)
     parser.Index(_, table, key) ->
       scan_expression(context, table) |> scan_expression(key)
@@ -292,6 +340,36 @@ fn scan_expression(context: Context, expr: parser.Expression) -> Context {
       scan_expression(context, lhs)
       |> scan_expression(rhs)
     parser.UnaryOperation(_, _, expr) -> scan_expression(context, expr)
+  }
+}
+
+fn scan_variable(context: Context, name: String) -> Context {
+  let scope = get_current_scope(context)
+  case dict.get(scope.vars, name) {
+    Ok(_) -> context
+    Error(_) ->
+      case find_variable_in_parent_scopes(context, name, scope) {
+        option.Some(_) -> context
+        option.None -> {
+          let scope_index = context.next_scope - 1
+          Context(
+            ..context,
+            scopes: dict.insert(
+              context.scopes,
+              scope_index,
+              Scope(
+                ..scope,
+                vars: dict.insert(
+                  scope.vars,
+                  name,
+                  Local(context.next_register),
+                ),
+              ),
+            ),
+            next_register: context.next_register + 1,
+          )
+        }
+      }
   }
 }
 
@@ -311,6 +389,24 @@ fn scan_field(context: Context, field: parser.Field) -> Context {
   }
 }
 
+fn find_variable_in_parent_scopes(
+  context: Context,
+  var: String,
+  scope: Scope,
+) -> option.Option(#(Variable, Scope)) {
+  case scope.parent {
+    // scope with parent -1 is the parent scope
+    -1 -> option.None
+    parent -> {
+      let assert Ok(parent_scope) = dict.get(context.scopes, parent)
+      case dict.get(parent_scope.vars, var) {
+        Ok(var) -> option.Some(#(var, parent_scope))
+        Error(_) -> find_variable_in_parent_scopes(context, var, parent_scope)
+      }
+    }
+  }
+}
+
 fn init_chunk(ast: parser.Block) -> Chunk {
   Chunk(
     name: "main",
@@ -325,7 +421,11 @@ fn init_chunk(ast: parser.Block) -> Chunk {
 }
 
 fn block(block: parser.Block, context: Context) {
-  do_block(block.statements, context, [])
+  do_block(
+    block.statements,
+    Context(..context, next_scope: context.next_scope + 1),
+    [],
+  )
 }
 
 fn do_block(
@@ -361,14 +461,9 @@ fn statement(
     parser.Repeat(_, condition, body) -> repeat(condition, body, context)
     parser.If(_, condition, then, else_if, else_) ->
       if_(condition, then, else_if, else_, context)
-    parser.For(span, identifier, init, limit, step, body) ->
-      for(identifier, init, limit, step, body, span, context)
-    parser.ForIn(span, names, in, body) ->
-      for_in(names, in, body, span, context)
-    parser.FunctionDeclaration(_, name, parameters, body) ->
-      function_declaration(name, parameters, body, context)
-    parser.LocalFunction(_, name, parameters, body) ->
-      local_function(name, parameters, body, context)
+    parser.For(_, identifier, init, limit, step, body) ->
+      for(identifier, init, limit, step, body, context)
+    parser.ForIn(_, names, in, body) -> for_in(names, in, body, context)
     parser.Local(_, names, expressions) -> local(names, expressions, context)
     parser.Return(_, values) -> return(values, context)
   }
@@ -491,9 +586,15 @@ fn do_assignment(
   value_register: Int,
   context: Context,
 ) -> #(Context, List(Instruction)) {
+  let scope = get_current_scope(context)
+
   case name {
     parser.Variable(_, name) ->
-      case dict.get(context.vars, name) {
+      case dict.get(scope.vars, name) {
+        // scope with parent -1 is the global scope
+        Ok(Local(var_register)) if scope.parent == -1 -> #(context, [
+          SetTableUp(0, var_register, value_register),
+        ])
         Ok(Local(var_register)) ->
           case var_register == value_register {
             True -> #(context, [])
@@ -502,10 +603,23 @@ fn do_assignment(
         Ok(Upvalue(var_register)) -> #(context, [
           Setupvalue(var_register, value_register),
         ])
-        Ok(Global(_var_register)) -> #(context, [
-          SetTableUp(0, String(name), value_register),
-        ])
-        Error(_) -> #(context, [])
+        Error(_) ->
+          case find_variable_in_parent_scopes(context, name, scope) {
+            // scope with parent -1 is the global scope
+            option.Some(#(Local(var_register), scope)) if scope.parent == -1 -> #(
+              context,
+              [SetTableUp(0, var_register, value_register)],
+            )
+            option.Some(#(Local(var_register), _)) ->
+              case var_register == value_register {
+                True -> #(context, [])
+                False -> #(context, [Move(var_register, value_register)])
+              }
+            option.Some(#(Upvalue(var_register), _)) -> #(context, [
+              Setupvalue(var_register, value_register),
+            ])
+            option.None -> #(context, [])
+          }
       }
     parser.Index(_, table, key) -> {
       let #(context, table_register, table_instructions) =
@@ -618,11 +732,10 @@ fn for(
   limit: parser.Expression,
   step: option.Option(parser.Expression),
   body: parser.Block,
-  span: parser.Span,
   context: Context,
 ) -> #(Context, List(Instruction)) {
-  let assert Ok(identifier_register) =
-    dict.get(context.statement_bindings, #(identifier, span))
+  let scope = get_current_scope(context)
+  let assert Ok(Local(identifier_register)) = dict.get(scope.vars, identifier)
 
   let start = context.next_register
   let context = Context(..context, next_register: start + 3)
@@ -657,13 +770,12 @@ fn for_in(
   names: List(String),
   in: List(parser.Expression),
   body: parser.Block,
-  span: parser.Span,
   context: Context,
 ) -> #(Context, List(Instruction)) {
   let assert [first, ..] = names
-  let assert Ok(names_start) =
-    dict.get(context.statement_bindings, #(first, span))
 
+  let scope = get_current_scope(context)
+  let assert Ok(Local(names_start)) = dict.get(scope.vars, first)
   let names_count = list.length(names)
 
   let start = context.next_register
@@ -691,7 +803,7 @@ fn for_in(
 
       let move =
         list.reverse(iterators_registers)
-        |> list.index_fold([], fn(acc, source, i) {
+        |> list.fold([], fn(acc, source) {
           let target = start + 1
           case source == target {
             True -> []
@@ -810,7 +922,8 @@ fn local(
     list.fold(names_and_values, #(context, []), fn(acc, pair) {
       let #(context, generated) = acc
       let #(parser.AttributeName(_, name), index) = pair
-      let assert Ok(Local(destination_register)) = dict.get(context.vars, name)
+      let scope = get_current_scope(context)
+      let assert Ok(Local(destination_register)) = dict.get(scope.vars, name)
 
       case index {
         -1 ->
@@ -955,17 +1068,43 @@ fn variable(
   var: String,
   context: Context,
 ) -> #(Context, Int, List(Instruction)) {
-  case dict.get(context.vars, var) {
+  let scope = get_current_scope(context)
+
+  case dict.get(scope.vars, var) {
+    // scope with parent -1 is the global scope
+    Ok(Local(var_register)) if scope.parent == -1 -> #(
+      advance(context),
+      context.next_register,
+      [
+        GetTableUp(context.next_register, 0, var_register),
+      ],
+    )
     Ok(Local(var_register)) -> #(context, var_register, [])
     Ok(Upvalue(var_register)) -> #(advance(context), context.next_register, [
       Getupvalue(context.next_register, var_register),
     ])
-    Ok(Global(var_register)) -> #(advance(context), context.next_register, [
-      GetTableUp(context.next_register, 0, var_register),
-    ])
-    Error(_) -> #(advance(context), context.next_register, [
-      LoadConstant(context.next_register, Nil),
-    ])
+    Error(_) ->
+      case find_variable_in_parent_scopes(context, var, scope) {
+        // scope with parent -1 is the global scope
+        option.Some(#(Local(var_register), scope)) if scope.parent == -1 -> #(
+          advance(context),
+          var_register,
+          [
+            GetTableUp(context.next_register, 0, var_register),
+          ],
+        )
+        option.Some(#(Local(var_register), _)) -> #(context, var_register, [])
+        option.Some(#(Upvalue(var_register), _)) -> #(
+          advance(context),
+          var_register,
+          [
+            Getupvalue(context.next_register, var_register),
+          ],
+        )
+        option.None -> #(advance(context), context.next_register, [
+          LoadConstant(context.next_register, Nil),
+        ])
+      }
   }
 }
 
@@ -1383,3 +1522,9 @@ fn parse_hexadecimal_number(
 fn advance(context: Context) -> Context {
   Context(..context, next_register: context.next_register + 1)
 }
+
+fn get_current_scope(context: Context) -> Scope {
+  let assert Ok(scope) = dict.get(context.scopes, context.next_scope - 1)
+  scope
+}
+
