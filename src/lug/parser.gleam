@@ -50,7 +50,7 @@ pub type Statement {
   )
   LocalFunction(
     location: Span,
-    name: FunctionName,
+    name: String,
     paramaters: List(Parameter),
     body: Block,
   )
@@ -456,7 +456,15 @@ fn local_function(
   tokens: Tokens,
   start: lexer.Position,
 ) -> Result(#(Statement, Tokens), Error) {
-  use #(name, args, body, end, tokens) <- result.try(do_function(tokens))
+  use #(name, _, tokens) <- result.try(identifier(tokens))
+  use _, tokens <- expect(lexer.LeftParen, tokens)
+  use args, _, tokens <- comma_delimited_until(
+    lexer.RightParen,
+    tokens,
+    parameter,
+  )
+  use #(body, tokens) <- result.try(block(tokens))
+  use end, tokens <- expect(lexer.End, tokens)
 
   let span = Span(start, end)
   Ok(#(LocalFunction(span, name, args, body), tokens))
