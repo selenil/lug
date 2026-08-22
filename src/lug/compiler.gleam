@@ -12,6 +12,7 @@ import lug/parser
 
 pub opaque type Chunk {
   Chunk(
+    name: option.Option(String),
     source: option.Option(String),
     instructions: List(Instruction),
     prototypes: List(Chunk),
@@ -464,6 +465,7 @@ fn find_variable_in_parent_scopes(
 
 fn init_chunk(ast: parser.Block) -> Chunk {
   Chunk(
+    name: option.Some("main"),
     source: option.None,
     instructions: [],
     prototypes: [],
@@ -908,8 +910,12 @@ fn function_declaration(
       parameters,
     )
   }
+  let fn_name =
+    list.fold(subfields, name, fn(acc, subfield) { acc <> "." <> subfield })
+    |> option.Some
+
   let #(context, closure_register, closure_instructions) =
-    closure(span, parameters, body, context)
+    closure(span, fn_name, parameters, body, context)
 
   case name, subfields {
     name, [] -> {
@@ -979,7 +985,7 @@ fn local_function(
   let assert Ok(Local(destination)) = dict.get(scope.vars, name)
 
   let #(context, closure_register, closure_instructions) =
-    closure(span, parameters, body, context)
+    closure(span, option.Some(name), parameters, body, context)
 
   #(context, [Move(destination, closure_register), ..closure_instructions])
 }
@@ -1188,7 +1194,7 @@ fn expression(
       Vararg(context.next_register, 1),
     ])
     parser.Function(span, parameters, body) ->
-      closure(span, parameters, body, context)
+      closure(span, option.None, parameters, body, context)
     parser.Call(_, function, args) -> call(function, args, context)
     parser.Table(_, fields) -> table(fields, context)
     parser.Index(_, table, key) -> index(table, key, context)
@@ -1231,6 +1237,7 @@ fn variable(
 
 fn closure(
   span: parser.Span,
+  name: option.Option(String),
   parameters: List(parser.Parameter),
   body: parser.Block,
   context: Context,
@@ -1268,6 +1275,7 @@ fn closure(
 
   let prototype =
     Chunk(
+      name:,
       instructions:,
       source: option.None,
       prototypes: context.prototypes,
@@ -1702,5 +1710,663 @@ fn get_current_scope(context: Context) -> Scope {
 }
 
 pub fn chunk_to_string(chunk: Chunk) -> String {
-  todo
+  let name = case chunk.name {
+    option.Some(name) -> name
+    option.None -> ""
+  }
+
+  let initial =
+    "function "
+    <> name
+    <> "("
+    <> string.join(list.repeat("_", chunk.parameters.count), ", ")
+
+  case chunk.parameters.has_vararg {
+    True -> initial <> "..."
+    False -> initial
+  }
+  <> ")"
+  <> " --from line "
+  <> int.to_string(chunk.span.start)
+  <> " to line "
+  <> int.to_string(chunk.span.end)
+  <> "\n"
+  |> list.fold(chunk.instructions, _, fn(acc, instruction) {
+    let #(instruction, _) = instruction_to_string(instruction, 1)
+
+    acc <> "    " <> instruction <> "\n"
+  })
+  <> "end"
+  |> list.fold(chunk.prototypes, _, fn(acc, prototype) {
+    acc <> "\n\n" <> chunk_to_string(prototype)
+  })
+}
+
+fn instruction_to_string(
+  instruction: Instruction,
+  identation: Int,
+) -> #(String, Int) {
+  case instruction {
+    Move(destination, source) -> #(
+      "MOVE "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "from: "
+        <> int.to_string(source),
+      identation,
+    )
+    LoadConstant(destination, constant) -> #(
+      "LOADCONSTANT "
+        <> "in: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "constant: "
+        <> constant_to_string(constant),
+      identation,
+    )
+    Getupvalue(destination, index) -> #(
+      "GETUPVALUE "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "upvalue: "
+        <> int.to_string(index),
+      identation,
+    )
+    Setupvalue(value, index) -> #(
+      "SETUPVALUE "
+        <> "value: "
+        <> int.to_string(value)
+        <> ", "
+        <> "upvalue: "
+        <> int.to_string(index),
+      identation,
+    )
+    NewTable(destination, hash_count, array_count) -> #(
+      "NEWTABLE "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "hash_count: "
+        <> int.to_string(hash_count)
+        <> ", "
+        <> "array_count: "
+        <> int.to_string(array_count),
+      identation,
+    )
+    GetTable(destination, table, index) -> #(
+      "GETTABLE "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "table: "
+        <> int.to_string(table)
+        <> ", "
+        <> "index: "
+        <> int.to_string(index),
+      identation,
+    )
+    GetTableUp(destination, table, index) -> #(
+      "GETTABLEUP "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "table: "
+        <> int.to_string(table)
+        <> ", "
+        <> "upvalue: "
+        <> int.to_string(index),
+      identation,
+    )
+    GetField(table, destination, key) -> #(
+      "GETFIELD "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "table: "
+        <> int.to_string(table)
+        <> ", "
+        <> "key: "
+        <> constant_to_string(key),
+      identation,
+    )
+    SetTable(table, key, value) -> #(
+      "SETTABLE "
+        <> "table: "
+        <> int.to_string(table)
+        <> ", "
+        <> "key: "
+        <> int.to_string(key)
+        <> ", "
+        <> "value: "
+        <> int.to_string(value),
+      identation,
+    )
+    SetTableUp(index, key, value) -> #(
+      "SETTABLEUP "
+        <> "upvalue: "
+        <> int.to_string(index)
+        <> ", "
+        <> "key: "
+        <> int.to_string(key)
+        <> ", "
+        <> "value: "
+        <> int.to_string(value),
+      identation,
+    )
+    SetField(table, key, value) -> #(
+      "SETFIELD "
+        <> "table: "
+        <> int.to_string(table)
+        <> ", "
+        <> "key: "
+        <> constant_to_string(key)
+        <> ", "
+        <> "value: "
+        <> int.to_string(value),
+      identation,
+    )
+    SetList(table, from, length) -> #(
+      "SETLIST "
+        <> "table: "
+        <> int.to_string(table)
+        <> ", "
+        <> "starting: "
+        <> int.to_string(from)
+        <> ", "
+        <> "length: "
+        <> int.to_string(length),
+      identation,
+    )
+    SetListMulti(table, from, length) -> #(
+      "SETLISTMULTI "
+        <> "table: "
+        <> int.to_string(table)
+        <> ", "
+        <> "starting: "
+        <> int.to_string(from)
+        <> ", "
+        <> "length: "
+        <> int.to_string(length),
+      identation,
+    )
+    Vararg(start, args) -> #(
+      "VARARG "
+        <> "starting: "
+        <> int.to_string(start)
+        <> ", "
+        <> "args: "
+        <> int.to_string(args),
+      identation,
+    )
+    Call(base, arg_count, result_count) -> #(
+      "CALL "
+        <> "function: "
+        <> int.to_string(base)
+        <> ", "
+        <> "arg_count: "
+        <> int.to_string(arg_count)
+        <> ", "
+        <> "result_count: "
+        <> int.to_string(result_count),
+      identation,
+    )
+    Return(start, result_count) -> #(
+      "RETURN "
+        <> "starting: "
+        <> int.to_string(start)
+        <> ", "
+        <> "count: "
+        <> int.to_string(result_count),
+      identation,
+    )
+    ReturnMulti(start, result_count) -> #(
+      "RETURNMULTI "
+        <> "starting: "
+        <> int.to_string(start)
+        <> ", "
+        <> "count: "
+        <> int.to_string(result_count),
+      identation,
+    )
+    Closure(destination, prototype) -> #(
+      "CLOSURE "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "prototype_index: "
+        <> int.to_string(prototype),
+      identation,
+    )
+
+    Test(condition, then, else_) -> {
+      let base =
+        "if has_truthy: "
+        <> int.to_string(condition)
+        <> " then\n"
+        <> list.fold(then, "", fn(acc, instruction) {
+          let #(instruction, _) =
+            instruction_to_string(instruction, identation + 1)
+
+          acc <> string.repeat("    ", identation + 1) <> instruction <> "\n"
+        })
+
+      case else_ {
+        [] -> #(base <> string.repeat("    ", identation) <> "end", identation)
+        _ -> {
+          let else_ =
+            string.repeat("    ", identation)
+            <> "else\n"
+            <> list.fold(else_, "", fn(acc, instruction) {
+              let #(instruction, _) =
+                instruction_to_string(instruction, identation + 1)
+
+              acc
+              <> string.repeat("    ", identation + 1)
+              <> instruction
+              <> "\n"
+            })
+
+          #(
+            base <> else_ <> string.repeat("    ", identation) <> "end",
+            identation,
+          )
+        }
+      }
+    }
+    Label(label) -> #(label <> ":", identation)
+    Goto(label) -> #("GOTO " <> "to: " <> label, identation)
+    Loop(condition, condition_instructions, eval_condition_before_block, body) -> {
+      let condition_body =
+        list.fold(condition_instructions, "", fn(acc, instruction) {
+          let #(instruction, _) =
+            instruction_to_string(instruction, identation + 1)
+
+          acc <> string.repeat("    ", identation + 1) <> instruction <> "\n"
+        })
+
+      let body =
+        list.fold(body, "", fn(acc, instruction) {
+          let #(instruction, _) =
+            instruction_to_string(instruction, identation + 1)
+
+          acc <> string.repeat("    ", identation + 1) <> instruction <> "\n"
+        })
+
+      let body = case eval_condition_before_block {
+        True -> condition_body <> body
+        False -> body <> condition_body
+      }
+
+      #(
+        "loop\n"
+          <> body
+          <> string.repeat("    ", identation)
+          <> "until has_truthy: "
+          <> int.to_string(condition),
+        identation,
+      )
+    }
+    ForLoop(start, identifier, body) -> {
+      let body =
+        list.fold(body, "", fn(acc, instruction) {
+          let #(instruction, _) =
+            instruction_to_string(instruction, identation + 1)
+
+          acc <> string.repeat("    ", identation + 1) <> instruction <> "\n"
+        })
+
+      #(
+        "for identifier: "
+          <> int.to_string(identifier)
+          <> ", init: "
+          <> int.to_string(start)
+          <> ", step: "
+          <> int.to_string(start + 1)
+          <> ", limit: "
+          <> int.to_string(start + 2)
+          <> " loop\n"
+          <> body
+          <> string.repeat("    ", identation)
+          <> "end",
+        identation,
+      )
+    }
+    TForLoop(start, identifier, count, body) -> {
+      let body =
+        list.fold(body, "", fn(acc, instruction) {
+          let #(instruction, _) =
+            instruction_to_string(instruction, identation + 1)
+
+          acc <> string.repeat("    ", identation + 1) <> instruction <> "\n"
+        })
+
+      let names =
+        int.range(from: 0, to: count, with: [], run: fn(acc, i) {
+          [int.to_string(identifier + i + 1), ..acc]
+        })
+        |> list.reverse
+        |> string.join(", ")
+
+      let iterators =
+        int.range(from: 0, to: count, with: [], run: fn(acc, i) {
+          [int.to_string(start + i + 1), ..acc]
+        })
+        |> list.reverse
+        |> string.join(", ")
+
+      #(
+        "for "
+          <> names
+          <> " in "
+          <> iterators
+          <> " loop\n"
+          <> body
+          <> string.repeat("    ", identation)
+          <> "end",
+        identation,
+      )
+    }
+    Break -> #("BREAK", identation)
+    Add(destination, lhs, rhs) -> #(
+      "ADD "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "left: "
+        <> int.to_string(lhs)
+        <> ", "
+        <> "right: "
+        <> int.to_string(rhs),
+      identation,
+    )
+    Sub(destination, lhs, rhs) -> #(
+      "SUB "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "left: "
+        <> int.to_string(lhs)
+        <> ", "
+        <> "right: "
+        <> int.to_string(rhs),
+      identation,
+    )
+    Mul(destination, lhs, rhs) -> #(
+      "MUL "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "left: "
+        <> int.to_string(lhs)
+        <> ", "
+        <> "right: "
+        <> int.to_string(rhs),
+      identation,
+    )
+    Div(destination, lhs, rhs) -> #(
+      "DIV "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "left: "
+        <> int.to_string(lhs)
+        <> ", "
+        <> "right: "
+        <> int.to_string(rhs),
+      identation,
+    )
+    FloorDiv(destination, lhs, rhs) -> #(
+      "FLOORDIV "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "left: "
+        <> int.to_string(lhs)
+        <> ", "
+        <> "right: "
+        <> int.to_string(rhs),
+      identation,
+    )
+    Pow(destination, lhs, rhs) -> #(
+      "Pow "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "left: "
+        <> int.to_string(lhs)
+        <> ", "
+        <> "right: "
+        <> int.to_string(rhs),
+      identation,
+    )
+    Mod(destination, lhs, rhs) -> #(
+      "MOD "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "left: "
+        <> int.to_string(lhs)
+        <> ", "
+        <> "right: "
+        <> int.to_string(rhs),
+      identation,
+    )
+    Eq(destination, lhs, rhs) -> #(
+      "EQ "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "left: "
+        <> int.to_string(lhs)
+        <> ", "
+        <> "right: "
+        <> int.to_string(rhs),
+      identation,
+    )
+    NotEq(destination, lhs, rhs) -> #(
+      "NOTEQ "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "left: "
+        <> int.to_string(lhs)
+        <> ", "
+        <> "right: "
+        <> int.to_string(rhs),
+      identation,
+    )
+    Gt(destination, lhs, rhs) -> #(
+      "GT "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "left: "
+        <> int.to_string(lhs)
+        <> ", "
+        <> "right: "
+        <> int.to_string(rhs),
+      identation,
+    )
+    GtEq(destination, lhs, rhs) -> #(
+      "GTEQ "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "left: "
+        <> int.to_string(lhs)
+        <> ", "
+        <> "right: "
+        <> int.to_string(rhs),
+      identation,
+    )
+    Lt(destination, lhs, rhs) -> #(
+      "LT "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "left: "
+        <> int.to_string(lhs)
+        <> ", "
+        <> "right: "
+        <> int.to_string(rhs),
+      identation,
+    )
+    LtEq(destination, lhs, rhs) -> #(
+      "LTEQ "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "left: "
+        <> int.to_string(lhs)
+        <> ", "
+        <> "right: "
+        <> int.to_string(rhs),
+      identation,
+    )
+    BwAnd(destination, lhs, rhs) -> #(
+      "BWAND "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "left: "
+        <> int.to_string(lhs)
+        <> ", "
+        <> "right: "
+        <> int.to_string(rhs),
+      identation,
+    )
+    BwOr(destination, lhs, rhs) -> #(
+      "BWOR "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "left: "
+        <> int.to_string(lhs)
+        <> ", "
+        <> "right: "
+        <> int.to_string(rhs),
+      identation,
+    )
+    BwXor(destination, lhs, rhs) -> #(
+      "BWXOR "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "left: "
+        <> int.to_string(lhs)
+        <> ", "
+        <> "right: "
+        <> int.to_string(rhs),
+      identation,
+    )
+    BwNot(destination, value) -> #(
+      "BWNOT "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "not: "
+        <> int.to_string(value),
+      identation,
+    )
+    ShiftLeft(destination, lhs, rhs) -> #(
+      "SHIFTLEFT "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "left: "
+        <> int.to_string(lhs)
+        <> ", "
+        <> "right: "
+        <> int.to_string(rhs),
+      identation,
+    )
+    ShiftRight(destination, lhs, rhs) -> #(
+      "SHIFTRIGHT "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "left: "
+        <> int.to_string(lhs)
+        <> ", "
+        <> "right: "
+        <> int.to_string(rhs),
+      identation,
+    )
+    And(destination, lhs, rhs) -> #(
+      "AND "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "left: "
+        <> int.to_string(lhs)
+        <> ", "
+        <> "right: "
+        <> int.to_string(rhs),
+      identation,
+    )
+    Or(destination, lhs, rhs) -> #(
+      "OR "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "left: "
+        <> int.to_string(lhs)
+        <> ", "
+        <> "right: "
+        <> int.to_string(rhs),
+      identation,
+    )
+    Not(destination, value) -> #(
+      "NOT "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "not: "
+        <> int.to_string(value),
+      identation,
+    )
+    Negate(destination, value) -> #(
+      "NEGATE "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "negate: "
+        <> int.to_string(value),
+      identation,
+    )
+    Length(destination, value) -> #(
+      "LENGTH "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "of: "
+        <> int.to_string(value),
+      identation,
+    )
+    Concat(destination, lhs, rhs) -> #(
+      "CONCAT "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "left: "
+        <> int.to_string(lhs)
+        <> ", "
+        <> "right: "
+        <> int.to_string(rhs),
+      identation,
+    )
+  }
+}
+
+fn constant_to_string(constant: Constant) -> String {
+  case constant {
+    Nil -> "nil"
+    Bool(True) -> "true"
+    Bool(False) -> "false"
+    String(s) -> s
+    Int(n) -> int.to_string(n)
+    Float(n) -> float.to_string(n)
+  }
 }
