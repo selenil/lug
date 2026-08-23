@@ -542,7 +542,7 @@ fn assignment(
       let #(context, name_instructions) =
         do_assignment(name, value_register, context)
 
-      #(context, list.append(value_instructions, name_instructions))
+      #(context, list.append(name_instructions, value_instructions))
     }
 
     _, _ -> {
