@@ -1539,10 +1539,13 @@ fn index(
   let #(context, key_register, key_instructions) = expression(key, context)
 
   let generated =
-    list.append(table_instructions, key_instructions)
-    |> list.append([
-      GetTable(context.next_register, table_register, key_register),
-    ])
+    list.append(
+      [
+        GetTable(context.next_register, table_register, key_register),
+        ..key_instructions
+      ],
+      table_instructions,
+    )
 
   #(advance(context), context.next_register, generated)
 }
