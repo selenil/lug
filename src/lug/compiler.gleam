@@ -27,14 +27,16 @@ pub type Instruction {
   // move instructions
   Move(destination: Int, source: Int)
   LoadConstant(destination: Int, value: Constant)
-  Getupvalue(destination: Int, index: Int)
-  Setupvalue(value: Int, index: Int)
+  GetGlobal(destination: Int, key: Constant)
+  GetUpvalue(destination: Int, index: Int)
+  SetGlobal(key: Constant, value: Int)
+  SetUpvalue(index: Int, value: Int)
 
   // table instructions
   NewTable(destination: Int, hash_count: Int, array_count: Int)
-  GetTable(destination: Int, table: Int, index: Int)
-  GetTableUp(destination: Int, upvalue: Int, index: Int)
+  GetTable(destination: Int, table: Int, key: Int)
   GetField(table: Int, destination: Int, key: Constant)
+  GetTableUp(destination: Int, table: Int, index: Int)
   SetTable(table: Int, key: Int, value: Int)
   SetTableUp(index: Int, key: Int, value: Int)
   SetField(table: Int, key: Constant, value: Int)
@@ -679,7 +681,7 @@ fn do_assignment(
             False -> #(context, [Move(var_register, value_register)])
           }
         Ok(Upvalue(var_register)) -> #(context, [
-          Setupvalue(var_register, value_register),
+          SetUpvalue(var_register, value_register),
         ])
         Error(_) ->
           case find_variable_in_parent_scopes(context, name, scope) {
@@ -692,7 +694,7 @@ fn do_assignment(
                 False -> #(context, [Move(var_register, value_register)])
               }
             option.Some(Upvalue(var_register)) -> #(context, [
-              Setupvalue(var_register, value_register),
+              SetUpvalue(var_register, value_register),
             ])
             option.None -> #(context, [])
           }
@@ -942,7 +944,7 @@ fn function_declaration(
       let generated = case dict.get(scope.vars, name) {
         Ok(Global(destination)) -> SetTableUp(0, destination, closure_register)
         Ok(Local(destination)) -> Move(destination, closure_register)
-        Ok(Upvalue(destination)) -> Setupvalue(destination, closure_register)
+        Ok(Upvalue(destination)) -> SetUpvalue(destination, closure_register)
         Error(_) ->
           case find_variable_in_parent_scopes(context, name, scope) {
             option.Some(Global(destination)) ->
@@ -950,7 +952,7 @@ fn function_declaration(
             option.Some(Local(destination)) ->
               Move(destination, closure_register)
             option.Some(Upvalue(destination)) ->
-              Setupvalue(destination, closure_register)
+              SetUpvalue(destination, closure_register)
             _ -> panic
           }
       }
@@ -963,13 +965,13 @@ fn function_declaration(
       let init = case dict.get(scope.vars, root) {
         Ok(Global(destination)) -> SetTableUp(0, destination, start)
         Ok(Local(destination)) -> Move(destination, start)
-        Ok(Upvalue(destination)) -> Setupvalue(destination, start)
+        Ok(Upvalue(destination)) -> SetUpvalue(destination, start)
         Error(_) ->
           case find_variable_in_parent_scopes(context, name, scope) {
             option.Some(Global(destination)) ->
               SetTableUp(0, destination, start)
             option.Some(Local(destination)) -> Move(destination, start)
-            option.Some(Upvalue(destination)) -> Setupvalue(destination, start)
+            option.Some(Upvalue(destination)) -> SetUpvalue(destination, start)
             _ -> panic
           }
       }
@@ -1236,7 +1238,7 @@ fn variable(
     ])
     Ok(Local(var_register)) -> #(context, var_register, [])
     Ok(Upvalue(var_register)) -> #(advance(context), context.next_register, [
-      Getupvalue(context.next_register, var_register),
+      GetUpvalue(context.next_register, var_register),
     ])
     Error(_) ->
       case find_variable_in_parent_scopes(context, var, scope) {
@@ -1245,7 +1247,7 @@ fn variable(
         ])
         option.Some(Local(var_register)) -> #(context, var_register, [])
         option.Some(Upvalue(var_register)) -> #(advance(context), var_register, [
-          Getupvalue(context.next_register, var_register),
+          GetUpvalue(context.next_register, var_register),
         ])
         option.None -> #(advance(context), context.next_register, [
           LoadConstant(context.next_register, Nil),
@@ -1784,7 +1786,16 @@ fn instruction_to_string(
         <> constant_to_string(constant),
       identation,
     )
-    Getupvalue(destination, index) -> #(
+    GetGlobal(destination, key) -> #(
+      "GETGLOBAL "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "key: "
+        <> constant_to_string(key),
+      identation,
+    )
+    GetUpvalue(destination, index) -> #(
       "GETUPVALUE "
         <> "to: "
         <> int.to_string(destination)
@@ -1793,7 +1804,16 @@ fn instruction_to_string(
         <> int.to_string(index),
       identation,
     )
-    Setupvalue(value, index) -> #(
+    SetGlobal(key, value) -> #(
+      "SETGLOBAL"
+        <> "field: "
+        <> constant_to_string(key)
+        <> ", "
+        <> "to: "
+        <> int.to_string(value),
+      identation,
+    )
+    SetUpvalue(value, index) -> #(
       "SETUPVALUE "
         <> "value: "
         <> int.to_string(value)
