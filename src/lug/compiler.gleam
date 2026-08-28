@@ -391,13 +391,32 @@ fn scan_variable(context: Context, name: String, mode: ScanMode) -> Context {
         option.Some(_) -> context
         option.None -> {
           let scope_index = context.next_scope - 1
-          let var = case mode, scope_index {
-            Env, 0 -> Global
-            Env, _ | Normal, _ -> Local
-            Function, _ -> Upvalue
-          }
 
-          insert_variable_in_scope(context, scope_index, name, var)
+          case mode, scope_index {
+            Env, 0 -> {
+              let assert Ok(scope) = dict.get(context.scopes, scope_index)
+
+              Context(
+                ..context,
+                scopes: dict.insert(
+                  context.scopes,
+                  scope_index,
+                  Scope(
+                    ..scope,
+                    vars: dict.insert(
+                      scope.vars,
+                      name,
+                      Global(context.next_register),
+                    ),
+                  ),
+                ),
+              )
+            }
+            Env, _ | Normal, _ ->
+              insert_variable_in_scope(context, scope_index, name, Local)
+            Function, _ ->
+              insert_variable_in_scope(context, scope_index, name, Upvalue)
+          }
         }
       }
   }
