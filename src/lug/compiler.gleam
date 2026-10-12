@@ -63,6 +63,7 @@ pub type Instruction {
     eval_condition_before_block: Bool,
     body: List(Instruction),
   )
+  ForTest(destination: Int, left: Int, right: Int, by: Int)
   ForLoop(start: Int, identifier: Int, body: List(Instruction))
   TForLoop(start: Int, identifier: Int, count: Int, body: List(Instruction))
   Break
@@ -828,13 +829,18 @@ fn for(
   body: parser.Block,
   context: Context,
 ) -> #(Context, List(Instruction)) {
-  let scope = get_current_scope(context)
+  let assert Ok(scope) = dict.get(context.scopes, context.next_scope)
   let assert Ok(Local(identifier_register)) = dict.get(scope.vars, identifier)
 
-  let start = context.next_register
-  let context = Context(..context, next_register: start + 3)
+  let condition_register = context.next_register
+  let context = advance(context)
 
   let #(context, init_register, init_instructions) = expression(init, context)
+  let init_instructions = [
+    Move(identifier_register, init_register),
+    ..init_instructions
+  ]
+
   let #(context, limit_register, limit_instructions) =
     expression(limit, context)
   let #(context, step_register, step_instructions) = case step {
@@ -844,16 +850,25 @@ fn for(
     ])
   }
 
+  let condition_instruction = [
+    ForTest(
+      condition_register,
+      identifier_register,
+      limit_register,
+      step_register,
+    ),
+  ]
+
   let #(context, body) = block(body, context)
+  let body =
+    [Add(identifier_register, identifier_register, step_register), ..body]
+    |> list.reverse
 
   let generated =
     [
-      ForLoop(start, identifier_register, body),
-      Move(start, init_register),
-      Move(start + 1, limit_register),
-      Move(start + 2, step_register),
+      Loop(condition_register, condition_instruction, True, body),
+      ..step_instructions
     ]
-    |> list.append(step_instructions)
     |> list.append(limit_instructions)
     |> list.append(init_instructions)
 
@@ -2289,6 +2304,19 @@ fn instruction_to_string(
         <> ", "
         <> "right: "
         <> int.to_string(rhs),
+      identation,
+    )
+    ForTest(destination, lhs, rhs, by) -> #(
+      "FORTEST "
+        <> "to: "
+        <> int.to_string(destination)
+        <> ", "
+        <> "left: "
+        <> int.to_string(lhs)
+        <> "right: "
+        <> int.to_string(rhs)
+        <> "by: "
+        <> int.to_string(by),
       identation,
     )
     BwAnd(destination, lhs, rhs) -> #(
