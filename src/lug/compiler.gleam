@@ -752,6 +752,16 @@ fn repeat(
 ) -> #(Context, List(Instruction)) {
   let #(context, condition_register, condition_instructions) =
     expression(condition, context)
+
+  // negate the condition
+  let condition_instructions =
+    list.reverse([
+      Not(context.next_register, condition_register),
+      ..condition_instructions
+    ])
+  let condition_register = context.next_register
+  let context = advance(context)
+
   let #(context, body_instructions) = block(body, context)
 
   #(context, [
