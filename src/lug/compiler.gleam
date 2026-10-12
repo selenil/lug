@@ -736,6 +736,8 @@ fn while(
 ) -> #(Context, List(Instruction)) {
   let #(context, condition_register, condition_instructions) =
     expression(condition, context)
+  let condition_instructions = list.reverse(condition_instructions)
+
   let #(context, body_instructions) = block(body, context)
 
   #(context, [
@@ -1591,8 +1593,11 @@ fn binary_operation(
     parser.Concat -> Concat(context.next_register, lhs_register, rhs_register)
   }
 
-  let generated =
-    list.append([operation_instruction, ..rhs_instructions], lhs_instructions)
+  let generated = [
+    operation_instruction,
+    ..list.append(rhs_instructions, lhs_instructions)
+  ]
+  echo generated
 
   #(advance(context), context.next_register, generated)
 }
