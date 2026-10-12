@@ -5,6 +5,7 @@ import gleam/float
 import gleam/int
 import gleam/list
 import gleam/option
+import gleam/pair
 import gleam/result
 import gleam/string
 import lug/lexer
@@ -533,7 +534,8 @@ fn statement(
     parser.Label(_, name) -> #(context, [Label(name)])
     parser.Break(_) -> #(context, [Break])
     parser.Goto(_, label) -> #(context, [Goto(label)])
-    parser.Do(_, do_block) -> block(do_block, context)
+    parser.Do(_, do_block) ->
+      block(do_block, context) |> pair.map_second(list.reverse)
     parser.While(_, condition, body) -> while(condition, body, context)
     parser.Repeat(_, condition, body) -> repeat(condition, body, context)
     parser.If(_, condition, then, else_if, else_) ->
@@ -763,7 +765,8 @@ fn if_(
   context: Context,
 ) -> #(Context, List(Instruction)) {
   case condition {
-    parser.BooleanTrue(_) -> block(then, context)
+    parser.BooleanTrue(_) ->
+      block(then, context) |> pair.map_second(list.reverse)
     parser.BooleanFalse(_) | parser.BooleanNil(_) ->
       else_if(else_if_list, else_, context)
     _ -> {
