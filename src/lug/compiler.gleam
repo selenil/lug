@@ -40,7 +40,7 @@ pub type Instruction {
   GetTableUp(destination: Int, table: Int, index: Int)
   SetTable(table: Int, key: Int, value: Int)
   SetTableUp(index: Int, key: Int, value: Int)
-  SetField(table: Int, key: Constant, value: Int)
+  SetField(table: Int, key: Int, value: Int)
   SetList(table: Int, from: Int, length: Int)
   SetListMulti(table: Int, from: Int, length: Int)
 
@@ -706,8 +706,9 @@ fn do_assignment(
         expression(table, context)
 
       case key {
-        parser.LiteralString(_, name) -> #(context, [
-          SetField(table_register, String(name), value_register),
+        parser.LiteralString(_, name) -> #(advance(context), [
+          SetField(table_register, context.next_register, value_register),
+          LoadConstant(context.next_register, String(name)),
           ..table_instructions
         ])
         _ -> {
@@ -1002,8 +1003,12 @@ fn function_declaration(
 
       let assert [end_field, ..] = list.reverse(subfields)
       #(
-        context,
-        [SetField(end_register, String(end_field), closure_register), ..getters]
+        advance(context),
+        [
+          SetField(end_register, context.next_register, closure_register),
+          LoadConstant(context.next_register, String(end_field)),
+          ..getters
+        ]
           |> list.append(closure_instructions),
       )
     }
@@ -1521,8 +1526,9 @@ fn table(
       let #(context, value_register, value_instructions) =
         expression(value, context)
       let #(context, key_instructions) = case key {
-        parser.LiteralString(_, name) -> #(context, [
-          SetField(destination_register, String(name), value_register),
+        parser.LiteralString(_, name) -> #(advance(context), [
+          SetField(destination_register, context.next_register, value_register),
+          LoadConstant(context.next_register, String(name)),
         ])
         _ -> {
           let #(context, key_register, key_instructions) =
@@ -1921,7 +1927,7 @@ fn instruction_to_string(
         <> int.to_string(table)
         <> ", "
         <> "key: "
-        <> constant_to_string(key)
+        <> int.to_string(key)
         <> ", "
         <> "value: "
         <> int.to_string(value),
