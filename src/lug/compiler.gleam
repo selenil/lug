@@ -2407,7 +2407,7 @@ fn constant_to_string(constant: Constant) -> String {
     Nil -> "nil"
     Bool(True) -> "true"
     Bool(False) -> "false"
-    String(s) -> s
+    String(s) -> "\"" <> s <> "\""
     Int(n) -> int.to_string(n)
     Float(n) -> float.to_string(n)
   }
