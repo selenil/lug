@@ -156,10 +156,15 @@ pub fn compile_ast(ast: parser.Block) -> Chunk {
 
 fn do_compile(ast: parser.Block, context: Context, chunk: Chunk) -> Chunk {
   let #(context, instructions) = block(ast, context)
+  let prototypes =
+    list.index_fold(context.prototypes, dict.new(), fn(context, prototype, i) {
+      dict.insert(context, i, prototype)
+    })
+
   Chunk(
     ..chunk,
     instructions:,
-    prototypes: context.prototypes,
+    prototypes:,
     constant_registers: context.constant_registers,
   )
 }
@@ -491,7 +496,7 @@ fn init_chunk(ast: parser.Block) -> Chunk {
     name: option.Some("main"),
     source: option.None,
     instructions: [],
-    prototypes: [],
+    prototypes: dict.new(),
     upvals: dict.new(),
     constant_registers: [],
     parameters: Parameters(0, True),
@@ -1298,7 +1303,6 @@ fn closure(
   body: parser.Block,
   context: Context,
 ) -> #(Context, Int, List(Instruction)) {
-  let prototypes = context.prototypes
   let constant_registers = context.constant_registers
 
   let assert Ok(scope) = dict.get(context.scopes, context.next_scope)
@@ -1329,12 +1333,17 @@ fn closure(
       }
     })
 
+  let prototypes =
+    list.index_fold(context.prototypes, dict.new(), fn(acc, prototype, i) {
+      dict.insert(acc, i, prototype)
+    })
+
   let prototype =
     Chunk(
       name:,
       instructions:,
       source: option.None,
-      prototypes: context.prototypes,
+      prototypes:,
       upvals:,
       constant_registers: context.constant_registers,
       parameters: Parameters(arg_count, has_vararg),
@@ -1345,11 +1354,11 @@ fn closure(
     Context(
       ..context,
       constant_registers:,
-      prototypes: list.append(prototypes, [prototype]),
+      prototypes: list.append(context.prototypes, [prototype]),
     )
 
   #(advance(context), context.next_register, [
-    Closure(context.next_register, list.length(context.prototypes)),
+    Closure(context.next_register, list.length(context.prototypes) - 1),
   ])
 }
 
@@ -1800,7 +1809,7 @@ pub fn chunk_to_string(chunk: Chunk) -> String {
     acc <> "    " <> instruction <> "\n"
   })
   <> "end"
-  |> list.fold(chunk.prototypes, _, fn(acc, prototype) {
+  |> dict.fold(chunk.prototypes, _, fn(acc, _, prototype) {
     acc <> "\n\n" <> chunk_to_string(prototype)
   })
 }
