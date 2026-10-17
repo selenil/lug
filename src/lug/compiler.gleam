@@ -1190,13 +1190,15 @@ fn return(
           let #(context, value_register, value_instructions) =
             expression(value, context)
 
-          case target_register == value_register {
-            True -> #(context, list.append(value_instructions, instructions))
-            False -> #(context, [
+          let generated = case target_register == value_register {
+            True -> value_instructions
+            False -> [
               Move(target_register, value_register),
-              ..list.append(value_instructions, instructions)
-            ])
+              ..value_instructions
+            ]
           }
+
+          #(context, list.append(generated, instructions))
         })
 
       case final {
@@ -1367,16 +1369,11 @@ fn call(
   args: List(parser.Expression),
   context: Context,
 ) -> #(Context, Int, List(Instruction)) {
-  let start = context.next_register
   let #(context, function_register, function_instructions) =
     expression(expr, context)
 
-  let function_instructions = case function_register == start {
-    True -> function_instructions
-    False -> [Move(start, function_register)]
-  }
+  let start = function_register
 
-  let args = list.reverse(args)
   let args_count = list.length(args)
   let context = Context(..context, next_register: start + args_count + 1)
 
