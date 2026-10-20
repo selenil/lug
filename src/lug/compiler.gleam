@@ -1283,10 +1283,11 @@ fn table(
     option.None -> array_count
   }
 
+  let start = start + array_count
   let #(context, generated) =
     list.index_fold(
       values,
-      #(Context(..context, next_register: start + array_count), generated),
+      #(Context(..context, next_register: start), generated),
       fn(acc, value, i) {
         let #(context, instructions) = acc
         let target_register = start + i
@@ -1326,7 +1327,7 @@ fn table(
     }
     _ -> {
       let generated = case generated {
-        [] -> generated
+        [NewTable(_, _, _)] -> generated
         _ -> [SetList(destination_register, start, array_count), ..generated]
       }
 
