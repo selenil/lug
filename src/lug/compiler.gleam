@@ -16,7 +16,7 @@ pub opaque type Chunk {
     name: option.Option(String),
     source: option.Option(String),
     instructions: List(Instruction),
-    prototypes: List(Chunk),
+    prototypes: dict.Dict(Int, Chunk),
     upvals: dict.Dict(String, Int),
     constant_registers: List(AttributeRegister),
     parameters: Parameters,
@@ -124,10 +124,10 @@ pub type Context {
     scopes: dict.Dict(Int, Scope),
     constant_registers: List(AttributeRegister),
     next_register: Int,
-    next_global: Int,
+    next_prototype: Int,
     next_scope: Int,
     parent_scope: Int,
-    prototypes: List(Chunk),
+    prototypes: dict.Dict(Int, Chunk),
   )
 }
 
@@ -156,15 +156,11 @@ pub fn compile_ast(ast: parser.Block) -> Chunk {
 
 fn do_compile(ast: parser.Block, context: Context, chunk: Chunk) -> Chunk {
   let #(context, instructions) = block(ast, context)
-  let prototypes =
-    list.index_fold(context.prototypes, dict.new(), fn(context, prototype, i) {
-      dict.insert(context, i, prototype)
-    })
 
   Chunk(
     ..chunk,
     instructions:,
-    prototypes:,
+    prototypes: context.prototypes,
     constant_registers: context.constant_registers,
   )
 }
@@ -1305,6 +1301,33 @@ fn closure(
   body: parser.Block,
   context: Context,
 ) -> #(Context, Int, List(Instruction)) {
+  let prototypes = context.prototypes
+  let prototype_index = context.next_prototype
+
+  let #(context, instructions) = {
+    use context <- enter_function(context)
+    let context =
+      list.fold(parameters, context, fn(context, parameter) {
+        case parameter {
+          parser.NamedParameter(_, name) ->
+            insert_variable_in_scope(
+              context,
+              context.next_scope - 1,
+              name,
+              Local(context.next_register),
+            )
+            |> advance
+          parser.VariadicParameter(_) -> context
+        }
+      })
+
+    do_block(
+      body.statements,
+      Context(..context, prototypes: dict.new(), constant_registers: []),
+      [],
+    )
+  }
+
   let constant_registers = context.constant_registers
 
   let assert Ok(scope) = dict.get(context.scopes, context.next_scope)
@@ -1335,11 +1358,6 @@ fn closure(
       }
     })
 
-  let prototypes =
-    list.index_fold(context.prototypes, dict.new(), fn(acc, prototype, i) {
-      dict.insert(acc, i, prototype)
-    })
-
   let prototype =
     Chunk(
       name:,
@@ -1356,11 +1374,12 @@ fn closure(
     Context(
       ..context,
       constant_registers:,
-      prototypes: list.append(context.prototypes, [prototype]),
+      next_prototype: prototype_index + 1,
+      prototypes: dict.insert(prototypes, prototype_index, prototype),
     )
 
   #(advance(context), context.next_register, [
-    Closure(context.next_register, list.length(context.prototypes) - 1),
+    Closure(context.next_register, prototype_index),
   ])
 }
 
