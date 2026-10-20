@@ -136,7 +136,6 @@ pub type Scope {
 }
 
 pub type Variable {
-  Global(Int)
   Local(Int)
   Upvalue(Int)
 }
@@ -151,7 +150,7 @@ pub fn compile(code: String) -> Result(Chunk, parser.Error) {
 }
 
 pub fn compile_ast(ast: parser.Block) -> Chunk {
-  do_compile(ast, init_context(ast), init_chunk(ast))
+  do_compile(ast, init_context(), init_chunk(ast))
 }
 
 fn do_compile(ast: parser.Block, context: Context, chunk: Chunk) -> Chunk {
@@ -165,30 +164,59 @@ fn do_compile(ast: parser.Block, context: Context, chunk: Chunk) -> Chunk {
   )
 }
 
-type ScanMode {
-  Env
-  Normal
-  Function
+fn init_context() -> Context {
+  Context(
+    scopes: dict.new(),
+    constant_registers: [],
+    next_register: 1,
+    next_prototype: 0,
+    next_scope: 0,
+    parent_scope: -1,
+    prototypes: dict.new(),
+  )
 }
 
-fn init_context(ast: parser.Block) -> Context {
-  let initial =
-    Context(
-      scopes: dict.new(),
-      constant_registers: [],
-      next_register: 1,
-      next_global: 0,
-      next_scope: 0,
-      parent_scope: -1,
-      prototypes: [],
-    )
-    |> scan_block(ast, Normal)
+fn insert_variable_in_scope(
+  context: Context,
+  scope_index: Int,
+  name: String,
+  variable: Variable,
+) -> Context {
+  let assert Ok(scope) = dict.get(context.scopes, scope_index)
 
-  // reset scope count to 0 so we traverse the scope in the same order when compiling
-  Context(..initial, next_scope: 0)
+  Context(
+    ..context,
+    scopes: dict.insert(
+      context.scopes,
+      scope_index,
+      Scope(..scope, vars: dict.insert(scope.vars, name, variable)),
+    ),
+  )
 }
 
-fn scan_block(context: Context, ast: parser.Block, mode: ScanMode) -> Context {
+fn find_variable_in_parent_scopes(
+  context: Context,
+  var: String,
+  scope_index: Int,
+) -> option.Option(Variable) {
+  let assert Ok(scope) = dict.get(context.scopes, scope_index)
+  case scope.parent {
+    // scope with parent -1 is the upmost scope
+    -1 -> option.None
+    parent_index -> {
+      let assert Ok(parent_scope) = dict.get(context.scopes, parent_index)
+      case dict.get(parent_scope.vars, var) {
+        Ok(var) -> option.Some(var)
+        Error(_) -> find_variable_in_parent_scopes(context, var, parent_index)
+      }
+    }
+  }
+}
+
+fn enter_block(
+  context: Context,
+  then: fn(Context) -> #(Context, a),
+) -> #(Context, a) {
   let scope = context.next_scope
   let context =
     Context(
@@ -201,290 +229,48 @@ fn scan_block(context: Context, ast: parser.Block, mode: ScanMode) -> Context {
       ),
       parent_scope: scope,
     )
-    |> list.fold(ast.statements, _, fn(context, statement) {
-      scan_statement(context, statement, mode)
-    })
 
-  Context(..context, parent_scope: context.parent_scope - 1)
-}
-
-fn scan_statement(
-  context: Context,
-  statement: parser.Statement,
-  mode: ScanMode,
-) -> Context {
-  let sc_expr = fn(context, statement) {
-    scan_expression(context, statement, mode)
-  }
-
-  case statement {
-    parser.Assignment(_, names, expressions) ->
-      list.fold(names, context, fn(context, expr) {
-        scan_expression(context, expr, Env)
-      })
-      |> list.fold(expressions, _, sc_expr)
-    parser.FunctionCall(_, function, args) ->
-      sc_expr(context, function)
-      |> list.fold(args, _, sc_expr)
-    parser.Label(_, _) -> context
-    parser.Break(_) -> context
-    parser.Goto(_, _) -> context
-    parser.Do(_, block) -> scan_block(context, block, mode)
-    parser.While(_, condition, block) ->
-      sc_expr(context, condition) |> scan_block(block, mode)
-    parser.Repeat(_, condition, block) ->
-      sc_expr(context, condition) |> scan_block(block, mode)
-    parser.If(_, condition, then, else_if, else_) -> {
-      let context =
-        sc_expr(context, condition)
-        |> scan_block(then, mode)
-        |> list.fold(else_if, _, fn(context, else_if) {
-          let parser.Elseif(_, condition, block) = else_if
-
-          sc_expr(context, condition)
-          |> scan_block(block, mode)
-        })
-
-      case else_ {
-        option.None -> context
-        option.Some(block) -> scan_block(context, block, mode)
-      }
-    }
-    parser.For(_, identifier, init, limit, step, body) -> {
-      let context =
-        sc_expr(context, init)
-        |> sc_expr(limit)
-
-      let context = case step {
-        option.None -> context
-        option.Some(step) -> sc_expr(context, step)
-      }
-
-      let scope =
-        Scope(
-          dict.from_list([#(identifier, Local(context.next_register))]),
-          context.parent_scope,
-        )
-
-      Context(
-        ..context,
-        scopes: dict.insert(context.scopes, context.next_scope, scope),
-        next_register: context.next_register + 1,
-      )
-      |> scan_block(body, mode)
-    }
-    parser.ForIn(_, names, in, body) -> {
-      let context =
-        Context(
-          ..context,
-          scopes: dict.insert(
-            context.scopes,
-            context.next_scope,
-            Scope(dict.new(), context.parent_scope),
-          ),
-        )
-
-      list.fold(in, context, sc_expr)
-      |> list.fold(names, _, fn(context, name) {
-        insert_variable_in_scope(context, context.next_scope, name, Local)
-      })
-      |> scan_block(body, mode)
-    }
-    parser.FunctionDeclaration(_, name, parameters, body) -> {
-      let context =
-        Context(
-          ..context,
-          scopes: dict.insert(
-            context.scopes,
-            context.next_scope,
-            Scope(dict.new(), context.parent_scope),
-          ),
-        )
-
-      let parser.FunctionName(name, _, method) = name
-      let context = scan_variable(context, name, Env)
-
-      case method {
-        option.Some(_) ->
-          insert_variable_in_scope(context, context.next_scope, "self", Local)
-        option.None -> context
-      }
-      |> list.fold(parameters, _, scan_parameter)
-      |> scan_block(body, Function)
-    }
-    parser.LocalFunction(_, name, parameters, body) -> {
-      let context =
-        Context(
-          ..context,
-          scopes: dict.insert(
-            context.scopes,
-            context.next_scope,
-            Scope(dict.new(), context.parent_scope),
-          ),
-        )
-
-      insert_variable_in_scope(context, context.next_scope - 1, name, Local)
-      |> list.fold(parameters, _, scan_parameter)
-      |> scan_block(body, Function)
-    }
-    parser.Local(_, names, values) ->
-      list.fold(values, context, sc_expr)
-      |> list.fold(names, _, fn(context, name) {
-        let parser.AttributeName(attribute, name) = name
-        let destination = context.next_register
-        let context =
-          insert_variable_in_scope(context, context.next_scope - 1, name, Local)
-
-        case attribute {
-          option.None -> context
-          option.Some(parser.Const) ->
-            Context(..context, constant_registers: [
-              Const(destination),
-              ..context.constant_registers
-            ])
-          option.Some(parser.Close) ->
-            Context(..context, constant_registers: [
-              Close(destination),
-              ..context.constant_registers
-            ])
-        }
-      })
-    parser.Return(_, expressions) -> list.fold(expressions, context, sc_expr)
-  }
-}
-
-fn scan_expression(
-  context: Context,
-  expr: parser.Expression,
-  mode: ScanMode,
-) -> Context {
-  case expr {
-    parser.BooleanNil(_) -> context
-    parser.BooleanFalse(_) -> context
-    parser.BooleanTrue(_) -> context
-    parser.Numeral(_, _) -> context
-    parser.LiteralString(_, _) -> context
-    parser.Variable(_, name) -> scan_variable(context, name, mode)
-    parser.Vararg(_) -> context
-    parser.Function(_, parameters, body) ->
-      list.fold(parameters, context, scan_parameter)
-      |> scan_block(body, Function)
-    parser.Call(_, function, args) ->
-      scan_expression(context, function, mode)
-      |> list.fold(args, _, fn(context, expression) {
-        scan_expression(context, expression, mode)
-      })
-    parser.Table(_, fields) ->
-      list.fold(fields, context, fn(context, expr) {
-        scan_field(context, expr, mode)
-      })
-    parser.Index(_, table, key) ->
-      scan_expression(context, table, mode) |> scan_expression(key, mode)
-    parser.BinaryOperation(_, _, lhs, rhs) ->
-      scan_expression(context, lhs, mode)
-      |> scan_expression(rhs, mode)
-    parser.UnaryOperation(_, _, expr) -> scan_expression(context, expr, mode)
-  }
-}
-
-fn scan_variable(context: Context, name: String, mode: ScanMode) -> Context {
-  let scope = get_current_scope(context)
-  case dict.get(scope.vars, name) {
-    Ok(_) -> context
-    Error(_) ->
-      case find_variable_in_parent_scopes(context, name, scope) {
-        option.Some(_) -> context
-        option.None -> {
-          let scope_index = context.next_scope - 1
-
-          case mode, scope_index {
-            Env, 0 -> {
-              let assert Ok(scope) = dict.get(context.scopes, scope_index)
-
-              Context(
-                ..context,
-                scopes: dict.insert(
-                  context.scopes,
-                  scope_index,
-                  Scope(
-                    ..scope,
-                    vars: dict.insert(
-                      scope.vars,
-                      name,
-                      Global(context.next_register),
-                    ),
-                  ),
-                ),
-              )
-            }
-            Env, _ | Normal, _ ->
-              insert_variable_in_scope(context, scope_index, name, Local)
-            Function, _ ->
-              insert_variable_in_scope(context, scope_index, name, Upvalue)
-          }
-        }
-      }
-  }
-}
-
-fn scan_parameter(context: Context, parameter: parser.Parameter) -> Context {
-  case parameter {
-    parser.NamedParameter(_, name) ->
-      insert_variable_in_scope(context, context.next_scope, name, Local)
-    parser.VariadicParameter(_) -> context
-  }
-}
-
-fn scan_field(
-  context: Context,
-  field: parser.Field,
-  mode: ScanMode,
-) -> Context {
-  case field {
-    parser.ListField(_, expr) -> scan_expression(context, expr, mode)
-    parser.RecordField(_, key, value) ->
-      scan_expression(context, key, mode) |> scan_expression(value, mode)
-  }
-}
-
-fn insert_variable_in_scope(
-  context: Context,
-  scope_index: Int,
-  name: String,
-  variable: fn(Int) -> Variable,
-) -> Context {
-  let assert Ok(scope) = dict.get(context.scopes, scope_index)
-
-  Context(
-    ..context,
-    next_register: context.next_register + 1,
-    scopes: dict.insert(
-      context.scopes,
-      scope_index,
-      Scope(
-        ..scope,
-        vars: dict.insert(scope.vars, name, variable(context.next_register)),
-      ),
+  let #(context, result) = then(context)
+  #(
+    Context(
+      ..context,
+      next_scope: context.next_scope - 1,
+      parent_scope: context.parent_scope - 1,
     ),
+    result,
   )
 }
 
-fn find_variable_in_parent_scopes(
+fn enter_function(
   context: Context,
-  var: String,
-  scope: Scope,
-) -> option.Option(Variable) {
-  case scope.parent {
-    // scope with parent -1 is the parent scope
-    -1 -> option.None
-    parent -> {
-      let assert Ok(parent_scope) = dict.get(context.scopes, parent)
-      case dict.get(parent_scope.vars, var) {
-        Ok(var) -> option.Some(var)
-        Error(_) -> find_variable_in_parent_scopes(context, var, parent_scope)
-      }
-    }
-  }
+  then: fn(Context) -> #(Context, a),
+) -> #(Context, a) {
+  let saved_register = context.next_register
+  let fun_scope = context.next_scope
+  let context =
+    Context(
+      ..context,
+      next_register: 1,
+      next_scope: context.next_scope + 1,
+      scopes: dict.insert(
+        context.scopes,
+        fun_scope,
+        Scope(dict.new(), context.parent_scope),
+      ),
+      parent_scope: fun_scope,
+    )
+
+  let #(context, result) = then(context)
+
+  #(
+    Context(
+      ..context,
+      next_register: saved_register,
+      next_scope: context.next_scope - 1,
+      parent_scope: context.parent_scope - 1,
+    ),
+    result,
+  )
 }
 
 fn init_chunk(ast: parser.Block) -> Chunk {
@@ -501,11 +287,8 @@ fn init_chunk(ast: parser.Block) -> Chunk {
 }
 
 fn block(block: parser.Block, context: Context) {
-  do_block(
-    block.statements,
-    Context(..context, next_scope: context.next_scope + 1),
-    [],
-  )
+  use context <- enter_block(context)
+  do_block(block.statements, context, [])
 }
 
 fn do_block(
@@ -671,14 +454,12 @@ fn do_assignment(
   value_register: Int,
   context: Context,
 ) -> #(Context, List(Instruction)) {
+  let scope_index = context.next_scope - 1
   let scope = get_current_scope(context)
 
   case name {
     parser.Variable(_, name) ->
       case dict.get(scope.vars, name) {
-        Ok(Global(var_register)) -> #(context, [
-          SetTableUp(0, var_register, value_register),
-        ])
         Ok(Local(var_register)) ->
           case var_register == value_register {
             True -> #(context, [])
@@ -688,10 +469,7 @@ fn do_assignment(
           SetUpvalue(var_register, value_register),
         ])
         Error(_) ->
-          case find_variable_in_parent_scopes(context, name, scope) {
-            option.Some(Global(var_register)) -> #(context, [
-              SetTableUp(0, var_register, value_register),
-            ])
+          case find_variable_in_parent_scopes(context, name, scope_index) {
             option.Some(Local(var_register)) ->
               case var_register == value_register {
                 True -> #(context, [])
@@ -700,7 +478,9 @@ fn do_assignment(
             option.Some(Upvalue(var_register)) -> #(context, [
               SetUpvalue(var_register, value_register),
             ])
-            option.None -> #(context, [])
+            option.None -> #(context, [
+              SetGlobal(String(name), value_register),
+            ])
           }
       }
     parser.Index(_, table, key) -> {
@@ -830,11 +610,9 @@ fn for(
   body: parser.Block,
   context: Context,
 ) -> #(Context, List(Instruction)) {
-  let assert Ok(scope) = dict.get(context.scopes, context.next_scope)
-  let assert Ok(Local(identifier_register)) = dict.get(scope.vars, identifier)
-
-  let condition_register = context.next_register
-  let context = advance(context)
+  let identifier_register = context.next_register
+  let condition_register = context.next_register + 1
+  let context = Context(..context, next_register: context.next_register + 2)
 
   let #(context, init_register, init_instructions) = expression(init, context)
   let init_instructions = [
@@ -860,9 +638,22 @@ fn for(
     ),
   ]
 
-  let #(context, body) = block(body, context)
+  let #(context, body) = {
+    use context <- enter_block(context)
+    insert_variable_in_scope(
+      context,
+      context.next_scope - 1,
+      identifier,
+      Local(identifier_register),
+    )
+    |> do_block(body.statements, _, [])
+  }
+
   let body =
-    [Add(identifier_register, identifier_register, step_register), ..body]
+    [
+      Add(identifier_register, identifier_register, step_register),
+      ..list.reverse(body)
+    ]
     |> list.reverse
 
   let generated =
@@ -882,12 +673,6 @@ fn for_in(
   body: parser.Block,
   context: Context,
 ) -> #(Context, List(Instruction)) {
-  let assert [first, ..] = names
-
-  let scope = get_current_scope(context)
-  let assert Ok(Local(names_start)) = dict.get(scope.vars, first)
-  let names_count = list.length(names)
-
   let start = context.next_register
   let context = Context(..context, next_register: start + 3)
 
@@ -926,10 +711,24 @@ fn for_in(
     }
   }
 
-  let #(context, body) = block(body, context)
+  let names_count = list.length(names)
+
+  let #(context, body) = {
+    use context <- enter_block(context)
+    list.fold(names, context, fn(context, name) {
+      insert_variable_in_scope(
+        context,
+        context.next_scope - 1,
+        name,
+        Local(context.next_register),
+      )
+      |> advance
+    })
+    |> do_block(body.statements, _, [])
+  }
 
   let generated = [
-    TForLoop(start, names_start, names_count, body),
+    TForLoop(start, context.next_register, names_count, body),
     ..iterator_instructions
   ]
 
@@ -943,7 +742,6 @@ fn function_declaration(
   body: parser.Block,
   context: Context,
 ) -> #(Context, List(Instruction)) {
-  let scope = get_current_scope(context)
   let #(name, subfields, parameters) = case name {
     parser.FunctionName(name, subfields, option.Some(method)) -> #(
       name,
@@ -970,63 +768,46 @@ fn function_declaration(
   let #(context, closure_register, closure_instructions) =
     closure(span, fn_name, parameters, body, context)
 
-  case name, subfields {
-    name, [] -> {
-      let scope = get_current_scope(context)
-      let generated = case dict.get(scope.vars, name) {
-        Ok(Global(destination)) -> SetTableUp(0, destination, closure_register)
-        Ok(Local(destination)) -> Move(destination, closure_register)
-        Ok(Upvalue(destination)) -> SetUpvalue(destination, closure_register)
-        Error(_) ->
-          case find_variable_in_parent_scopes(context, name, scope) {
-            option.Some(Global(destination)) ->
-              SetTableUp(0, destination, closure_register)
-            option.Some(Local(destination)) ->
-              Move(destination, closure_register)
-            option.Some(Upvalue(destination)) ->
-              SetUpvalue(destination, closure_register)
-            _ -> panic
-          }
-      }
+  case name, list.reverse(subfields) {
+    name, [] -> #(context, [
+      SetGlobal(String(name), closure_register),
+      ..closure_instructions
+    ])
 
-      #(context, [generated, ..closure_instructions])
+    name, [key] -> {
+      let #(context, name_register, name_instructions) = variable(name, context)
+
+      #(advance(context), [
+        SetField(name_register, context.next_register, closure_register),
+        LoadConstant(context.next_register, String(key)),
+        ..list.append(name_instructions, closure_instructions)
+      ])
     }
-    root, subfields -> {
-      let start = context.next_register
-      let scope = get_current_scope(context)
-      let init = case dict.get(scope.vars, root) {
-        Ok(Global(destination)) -> SetTableUp(0, destination, start)
-        Ok(Local(destination)) -> Move(destination, start)
-        Ok(Upvalue(destination)) -> SetUpvalue(destination, start)
-        Error(_) ->
-          case find_variable_in_parent_scopes(context, name, scope) {
-            option.Some(Global(destination)) ->
-              SetTableUp(0, destination, start)
-            option.Some(Local(destination)) -> Move(destination, start)
-            option.Some(Upvalue(destination)) -> SetUpvalue(destination, start)
-            _ -> panic
-          }
-      }
-      let #(getters, end_register, context) =
-        list.fold(subfields, #([init], start, advance(context)), fn(acc, field) {
-          let #(getters, current, context) = acc
-          #(
-            [GetField(context.next_register, current, String(field)), ..getters],
-            context.next_register,
-            advance(context),
-          )
-        })
+    name, [key, ..subfields] -> {
+      let #(context, name_register, name_instructions) = variable(name, context)
 
-      let assert [end_field, ..] = list.reverse(subfields)
-      #(
-        advance(context),
-        [
-          SetField(end_register, context.next_register, closure_register),
-          LoadConstant(context.next_register, String(end_field)),
-          ..getters
-        ]
-          |> list.append(closure_instructions),
-      )
+      let table_register = context.next_register
+      let context = advance(context)
+      let subfields_instructions =
+        list.fold(subfields, [], fn(acc, subfield) {
+          [
+            LoadConstant(context.next_register, String(subfield)),
+            GetTable(table_register, table_register, context.next_register),
+            ..acc
+          ]
+        })
+        |> list.reverse
+
+      let generated =
+        list.append(subfields_instructions, name_instructions)
+        |> list.append([Move(table_register, name_register)])
+        |> list.append(closure_instructions)
+
+      #(advance(context), [
+        SetField(table_register, context.next_register, closure_register),
+        LoadConstant(context.next_register, String(key)),
+        ..generated
+      ])
     }
   }
 }
@@ -1038,11 +819,17 @@ fn local_function(
   body: parser.Block,
   context: Context,
 ) -> #(Context, List(Instruction)) {
-  let scope = get_current_scope(context)
-  let assert Ok(Local(destination)) = dict.get(scope.vars, name)
-
   let #(context, closure_register, closure_instructions) =
     closure(span, option.Some(name), parameters, body, context)
+  let destination = context.next_register
+  let context =
+    insert_variable_in_scope(
+      context,
+      context.next_scope - 1,
+      name,
+      Local(context.next_register),
+    )
+    |> advance
 
   #(context, [Move(destination, closure_register), ..closure_instructions])
 }
@@ -1119,8 +906,15 @@ fn local(
     list.fold(names_and_values, #(context, []), fn(acc, pair) {
       let #(context, generated) = acc
       let #(parser.AttributeName(_, name), index) = pair
-      let scope = get_current_scope(context)
-      let assert Ok(Local(destination_register)) = dict.get(scope.vars, name)
+      let destination_register = context.next_register
+      let context =
+        insert_variable_in_scope(
+          context,
+          context.next_scope - 1,
+          name,
+          Local(destination_register),
+        )
+        |> advance
 
       case index {
         -1 ->
@@ -1268,27 +1062,22 @@ fn variable(
   var: String,
   context: Context,
 ) -> #(Context, Int, List(Instruction)) {
+  let scope_index = context.next_scope - 1
   let scope = get_current_scope(context)
 
   case dict.get(scope.vars, var) {
-    Ok(Global(var_register)) -> #(advance(context), context.next_register, [
-      GetTableUp(context.next_register, 0, var_register),
-    ])
     Ok(Local(var_register)) -> #(context, var_register, [])
     Ok(Upvalue(var_register)) -> #(advance(context), context.next_register, [
       GetUpvalue(context.next_register, var_register),
     ])
     Error(_) ->
-      case find_variable_in_parent_scopes(context, var, scope) {
-        option.Some(Global(var_register)) -> #(advance(context), var_register, [
-          GetTableUp(context.next_register, 0, var_register),
-        ])
+      case find_variable_in_parent_scopes(context, var, scope_index) {
         option.Some(Local(var_register)) -> #(context, var_register, [])
         option.Some(Upvalue(var_register)) -> #(advance(context), var_register, [
           GetUpvalue(context.next_register, var_register),
         ])
         option.None -> #(advance(context), context.next_register, [
-          LoadConstant(context.next_register, Nil),
+          GetGlobal(context.next_register, String(var)),
         ])
       }
   }
@@ -1329,19 +1118,6 @@ fn closure(
   }
 
   let constant_registers = context.constant_registers
-
-  let assert Ok(scope) = dict.get(context.scopes, context.next_scope)
-  let upvals =
-    dict.fold(scope.vars, dict.new(), fn(acc, name, var) {
-      case var {
-        Upvalue(register) -> dict.insert(acc, name, register)
-        _ -> acc
-      }
-    })
-
-  let #(context, instructions): #(Context, List(Instruction)) =
-    block(body, Context(..context, prototypes: [], constant_registers: []))
-
   let arg_count =
     list.count(parameters, fn(parameter) {
       case parameter {
