@@ -1430,7 +1430,6 @@ fn binary_operation(
     operation_instruction,
     ..list.append(rhs_instructions, lhs_instructions)
   ]
-  echo generated
 
   #(advance(context), context.next_register, generated)
 }
