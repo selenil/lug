@@ -19,7 +19,8 @@ pub opaque type Chunk {
     prototypes: dict.Dict(Int, Chunk),
     upvals: dict.Dict(String, Int),
     constant_registers: List(AttributeRegister),
-    parameters: Parameters,
+    arg_count: Int,
+    is_vararg: Bool,
     span: Span,
   )
 }
@@ -46,9 +47,10 @@ pub type Instruction {
 
   // function instructions
   Vararg(start: Int, args: Int)
+  VarargPrep(arg_count: Int)
   Call(base: Int, arg_count: Int, result_count: Int)
   Return(start: Int, result_count: Int)
-  ReturnMulti(start: Int, result_count: Int)
+  ReturnVararg(start: Int, result_count: Int)
   Closure(destination: Int, prototype: Int)
 
   // branching instructions
@@ -281,7 +283,8 @@ fn init_chunk(ast: parser.Block) -> Chunk {
     prototypes: dict.new(),
     upvals: dict.new(),
     constant_registers: [],
-    parameters: Parameters(0, True),
+    arg_count: 0,
+    is_vararg: True,
     span: Span(ast.location.start.line, ast.location.end.line),
   )
 }
@@ -944,8 +947,7 @@ fn return(
   case values {
     [] -> #(context, [Return(0, 0)])
     [parser.Vararg(_)] -> #(context, [
-      ReturnMulti(context.next_register, 0),
-      Vararg(context.next_register, 0),
+      ReturnVararg(context.next_register, -1),
     ])
     [parser.Call(_, _, _) as call] -> {
       let #(context, _, call_instructions) = expression(call, context)
@@ -994,8 +996,7 @@ fn return(
       case final {
         option.Some(parser.Vararg(_)) -> {
           #(context, [
-            ReturnMulti(start, result_count),
-            Vararg(start + result_count - 1, 0),
+            ReturnVararg(start + result_count - 1, result_count),
             ..generated
           ])
         }
@@ -1007,7 +1008,7 @@ fn return(
             )
           #(
             context,
-            [ReturnMulti(start, result_count), ..call_instructions]
+            [Return(start, result_count), ..call_instructions]
               |> list.append(generated),
           )
         }
@@ -1093,6 +1094,23 @@ fn closure(
   let prototypes = context.prototypes
   let prototype_index = context.next_prototype
 
+  let constant_registers = context.constant_registers
+  let arg_count =
+    list.count(parameters, fn(parameter) {
+      case parameter {
+        parser.VariadicParameter(_) -> False
+        _ -> True
+      }
+    })
+
+  let has_vararg =
+    list.any(parameters, fn(parameter) {
+      case parameter {
+        parser.VariadicParameter(_) -> True
+        _ -> False
+      }
+    })
+
   let #(context, instructions) = {
     use context <- enter_function(context)
     let context =
@@ -1115,24 +1133,13 @@ fn closure(
       Context(..context, prototypes: dict.new(), constant_registers: []),
       [],
     )
+    |> pair.map_second(fn(body) {
+      case has_vararg {
+        True -> [VarargPrep(arg_count), ..body]
+        False -> body
+      }
+    })
   }
-
-  let constant_registers = context.constant_registers
-  let arg_count =
-    list.count(parameters, fn(parameter) {
-      case parameter {
-        parser.VariadicParameter(_) -> False
-        _ -> True
-      }
-    })
-
-  let has_vararg =
-    list.any(parameters, fn(parameter) {
-      case parameter {
-        parser.VariadicParameter(_) -> True
-        _ -> False
-      }
-    })
 
   let prototype =
     Chunk(
@@ -1142,7 +1149,8 @@ fn closure(
       prototypes:,
       upvals:,
       constant_registers: context.constant_registers,
-      parameters: Parameters(arg_count, has_vararg),
+      arg_count:,
+      is_vararg: has_vararg,
       span: Span(span.start.line, span.end.line),
     )
 
@@ -1583,9 +1591,9 @@ pub fn chunk_to_string(chunk: Chunk) -> String {
     "function "
     <> name
     <> "("
-    <> string.join(list.repeat("_", chunk.parameters.count), ", ")
+    <> string.join(list.repeat("_", chunk.arg_count), ", ")
 
-  case chunk.parameters.has_vararg {
+  case chunk.is_vararg {
     True -> initial <> "..."
     False -> initial
   }
@@ -1782,6 +1790,10 @@ fn instruction_to_string(
         <> int.to_string(args),
       identation,
     )
+    VarargPrep(start) -> #(
+      "VARARGPREP " <> "arg_count: " <> int.to_string(start),
+      identation,
+    )
     Call(base, arg_count, result_count) -> #(
       "CALL "
         <> "function: "
@@ -1803,8 +1815,8 @@ fn instruction_to_string(
         <> int.to_string(result_count),
       identation,
     )
-    ReturnMulti(start, result_count) -> #(
-      "RETURNMULTI "
+    ReturnVararg(start, result_count) -> #(
+      "RETURNVARARG "
         <> "starting: "
         <> int.to_string(start)
         <> ", "
