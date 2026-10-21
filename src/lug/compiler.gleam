@@ -842,34 +842,56 @@ fn local(
   expressions: List(parser.Expression),
   context: Context,
 ) -> #(Context, List(Instruction)) {
-  let #(final, values) = case list.reverse(expressions) {
-    [parser.Vararg(_) as final, ..values] -> #(option.Some(final), values)
-    [parser.Call(_, _, _) as final, ..values] -> #(option.Some(final), values)
+  let #(final, expressions) = case list.reverse(expressions) {
+    [parser.Vararg(_) as final, ..rest] -> #(
+      option.Some(final),
+      list.reverse(rest),
+    )
+    [parser.Call(_, _, _) as final, ..rest] -> #(
+      option.Some(final),
+      list.reverse(rest),
+    )
     _ -> #(option.None, expressions)
   }
 
   let #(context, values_registers, values_instructions) =
-    list.fold(values, #(context, [], []), fn(acc, value) {
+    list.fold(expressions, #(context, [], []), fn(acc, value) {
       let #(context, registers, generated) = acc
-      let #(context, value_register, value_instructions) =
-        expression(value, context)
+
+      // for calls and varargs expressions in the middle,
+      // use just one result/value from them
+      let #(context, value_register, value_instructions) = case value {
+        parser.Vararg(_) -> #(advance(context), context.next_register, [
+          Vararg(context.next_register, 1),
+        ])
+        parser.Call(_, name, args) ->
+          case call(name, args, context) {
+            #(context, call_register, [Call(_, _, _) as call, ..rest]) -> #(
+              context,
+              call_register + 1,
+              [Call(..call, result_count: 1), ..rest],
+            )
+            other -> other
+          }
+        _ -> expression(value, context)
+      }
+
       #(
         context,
         [value_register, ..registers],
         list.append(value_instructions, generated),
       )
     })
-
-  let values_register = list.reverse(values_registers)
+  let values_registers = list.reverse(values_registers)
 
   let names_count = list.length(names)
   let values_count = list.length(values_registers)
+  let diff = names_count - values_count
 
   let #(context, final_register, values_instructions) = case final {
     option.Some(parser.Vararg(_)) -> {
-      let diff = names_count - values_count
       #(
-        Context(..context, next_register: context.next_register + diff),
+        Context(..context, next_register: context.next_register + diff + 1),
         context.next_register,
         [Vararg(context.next_register, diff), ..values_instructions],
       )
@@ -877,13 +899,14 @@ fn local(
     option.Some(parser.Call(_, _, _) as call) -> {
       case expression(call, context) {
         #(context, call_register, [Call(_, _, _) as call_instruction, ..rest]) -> {
-          let diff = names_count - values_count
           let context = Context(..context, next_register: call_register + diff)
 
-          #(context, call_register, [
-            Call(..call_instruction, result_count: diff),
-            ..rest
-          ])
+          #(
+            Context(..context, next_register: context.next_register + diff + 1),
+            call_register,
+            [Call(..call_instruction, result_count: diff), ..rest]
+              |> list.append(values_instructions),
+          )
         }
         #(context, call_register, call_instructions) -> #(
           context,
@@ -892,21 +915,23 @@ fn local(
         )
       }
     }
-    _ -> #(context, 0, values_instructions)
+    _ -> #(context, -1, values_instructions)
   }
 
-  let names_and_values = case names_count == values_count {
-    True -> list.zip(names, values_registers)
-    False -> {
-      let diff = names_count - values_count
-      let values_registers = list.append(values_register, list.repeat(-1, diff))
+  let #(names, stray_names) =
+    list.index_fold(names, #([], []), fn(acc, name, i) {
+      case i + 1 <= values_count {
+        True -> #([name, ..acc.0], acc.1)
+        False -> #(acc.0, [name, ..acc.1])
+      }
+    })
 
-      list.zip(names, values_registers)
-    }
-  }
+  let names = list.reverse(names)
+  let stray_names = list.reverse(stray_names)
 
   let #(context, move_instructions) =
-    list.fold(names_and_values, #(context, []), fn(acc, pair) {
+    list.zip(names, values_registers)
+    |> list.fold(#(context, []), fn(acc, pair) {
       let #(context, generated) = acc
       let #(parser.AttributeName(_, name), index) = pair
       let destination_register = context.next_register
@@ -919,23 +944,43 @@ fn local(
         )
         |> advance
 
-      case index {
-        -1 ->
-          case final {
-            option.Some(_) -> #(context, [
-              Move(
-                destination_register,
-                { index - values_count } + final_register,
-              ),
-            ])
-            option.None -> #(context, [
-              LoadConstant(destination_register, Nil),
-              ..generated
-            ])
-          }
-        index -> #(context, [Move(destination_register, index), ..generated])
-      }
+      #(context, [Move(destination_register, index), ..generated])
     })
+
+  let #(context, move_instructions) =
+    list.index_fold(
+      stray_names,
+      #(context, move_instructions),
+      fn(acc, name, i) {
+        let #(context, generated) = acc
+        let parser.AttributeName(_, name) = name
+        let destination_register = context.next_register
+        let context =
+          insert_variable_in_scope(
+            context,
+            context.next_scope - 1,
+            name,
+            Local(destination_register),
+          )
+          |> advance
+
+        case final {
+          option.Some(parser.Vararg(_)) -> #(context, [
+            Move(destination_register, final_register + i),
+            ..generated
+          ])
+          option.Some(parser.Call(_, _, _)) -> #(context, [
+            Move(destination_register, final_register + i + 1),
+            ..generated
+          ])
+          _ -> #(advance(context), [
+            Move(destination_register, context.next_register),
+            LoadConstant(context.next_register, Nil),
+            ..generated
+          ])
+        }
+      },
+    )
 
   #(context, list.append(move_instructions, values_instructions))
 }
