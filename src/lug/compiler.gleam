@@ -50,7 +50,8 @@ pub type Instruction {
   VarargPrep(arg_count: Int)
   Call(base: Int, arg_count: Int, result_count: Int)
   Return(start: Int, result_count: Int)
-  ReturnVararg(start: Int, result_count: Int)
+  ReturnMulti(start: Int, fixed_result_count: Int, result_count: Int)
+  ReturnVararg(start: Int, fixed_result_count: Int, result_count: Int)
   Closure(destination: Int, prototype: Int)
 
   // branching instructions
@@ -992,11 +993,17 @@ fn return(
   case values {
     [] -> #(context, [Return(0, 0)])
     [parser.Vararg(_)] -> #(context, [
-      ReturnVararg(context.next_register, -1),
+      ReturnVararg(context.next_register, 0, -1),
     ])
-    [parser.Call(_, _, _) as call] -> {
-      let #(context, _, call_instructions) = expression(call, context)
-      #(context, call_instructions)
+    [parser.Call(_, name, args)] -> {
+      let #(context, call_register, call_instructions) =
+        call(name, args, context)
+      let length = case call_instructions {
+        [Call(_, _, length), ..] -> length
+        _ -> -1
+      }
+
+      #(context, [ReturnMulti(call_register, 0, length), ..call_instructions])
     }
     [value] -> {
       let #(context, value_register, value_instructions) =
@@ -1005,7 +1012,6 @@ fn return(
       #(context, [Return(value_register, 1), ..value_instructions])
     }
     [_, ..] -> {
-      let result_count = list.length(values)
       let #(final, values) = case list.reverse(values) {
         [parser.Vararg(_) as final, ..rest] -> #(
           option.Some(final),
@@ -1017,6 +1023,7 @@ fn return(
         )
         _ -> #(option.None, values)
       }
+      let result_count = list.length(values)
 
       let start = context.next_register
       let #(context, generated) =
@@ -1040,20 +1047,24 @@ fn return(
 
       case final {
         option.Some(parser.Vararg(_)) -> {
-          #(context, [
-            ReturnVararg(start + result_count - 1, result_count),
-            ..generated
-          ])
+          #(context, [ReturnVararg(start, result_count, -1), ..generated])
         }
-        option.Some(parser.Call(_, _, _) as call) -> {
+        option.Some(parser.Call(_, name, args)) -> {
           let #(context, _, call_instructions) =
-            expression(
-              call,
+            call(
+              name,
+              args,
               Context(..context, next_register: start + result_count),
             )
+
+          let length = case call_instructions {
+            [Call(_, _, length), ..] -> length
+            _ -> -1
+          }
+
           #(
             context,
-            [Return(start, result_count), ..call_instructions]
+            [ReturnMulti(start, result_count, length), ..call_instructions]
               |> list.append(generated),
           )
         }
@@ -1860,10 +1871,25 @@ fn instruction_to_string(
         <> int.to_string(result_count),
       identation,
     )
-    ReturnVararg(start, result_count) -> #(
+    ReturnVararg(start, fixed_result_count, result_count) -> #(
       "RETURNVARARG "
         <> "starting: "
         <> int.to_string(start)
+        <> ", "
+        <> "fixed: "
+        <> int.to_string(fixed_result_count)
+        <> ", "
+        <> "count: "
+        <> int.to_string(result_count),
+      identation,
+    )
+    ReturnMulti(start, fixed_result_count, result_count) -> #(
+      "RETURNVARARG "
+        <> "starting: "
+        <> int.to_string(start)
+        <> ", "
+        <> "fixed: "
+        <> int.to_string(fixed_result_count)
         <> ", "
         <> "count: "
         <> int.to_string(result_count),
