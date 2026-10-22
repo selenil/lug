@@ -43,7 +43,8 @@ pub type Instruction {
   SetTableUp(index: Int, key: Int, value: Int)
   SetField(table: Int, key: Int, value: Int)
   SetList(table: Int, from: Int, length: Int)
-  SetListMulti(table: Int, from: Int, length: Int)
+  SetListMulti(table: Int, from: Int, array_count: Int, length: Int)
+  SetListVararg(table: Int, from: Int, array_count: Int, length: Int)
 
   // function instructions
   Vararg(start: Int, args: Int)
@@ -1326,10 +1327,9 @@ fn table(
 
   let destination_register = context.next_register
   let generated = [
-    NewTable(context.next_register, hash_count, array_count),
+    NewTable(destination_register, hash_count, array_count),
   ]
 
-  let start = context.next_register + 1
   let #(final, values) = case list.reverse(array_part) {
     [parser.Vararg(_) as final, ..values] -> #(
       option.Some(final),
@@ -1343,46 +1343,46 @@ fn table(
   }
 
   let array_count = case final {
-    option.Some(_) -> list.length(values)
+    option.Some(_) -> array_count - 1
     option.None -> array_count
   }
 
-  let start = start + array_count
+  let context = advance(context)
+  let start = context.next_register
+
   let #(context, generated) =
-    list.index_fold(
-      values,
-      #(Context(..context, next_register: start), generated),
-      fn(acc, value, i) {
-        let #(context, instructions) = acc
-        let target_register = start + i
+    list.index_fold(values, #(context, generated), fn(acc, value, i) {
+      let #(context, instructions) = acc
+      let target_register = context.next_register + i
 
-        let #(context, value_register, value_instructions) =
-          expression(value, context)
+      let #(context, value_register, value_instructions) =
+        expression(value, context)
 
-        case target_register == value_register {
-          True -> #(context, list.append(value_instructions, instructions))
-          False -> #(context, [
-            Move(target_register, value_register),
-            ..list.append(value_instructions, instructions)
-          ])
-        }
-      },
-    )
+      case target_register == value_register {
+        True -> #(context, list.append(value_instructions, instructions))
+        False -> #(context, [
+          Move(target_register, value_register),
+          ..list.append(value_instructions, instructions)
+        ])
+      }
+    })
 
   let #(context, generated) = case final {
     option.Some(parser.Vararg(_)) -> #(context, [
-      SetListMulti(destination_register, start, array_count),
-      Vararg(start + array_count, 0),
+      SetListVararg(destination_register, start, array_count, -1),
       ..generated
     ])
 
-    option.Some(parser.Call(_, _, _) as call) -> {
-      let #(context, _, call_instructions) =
-        expression(call, Context(..context, next_register: start + array_count))
+    option.Some(parser.Call(_, name, args)) -> {
+      let #(context, _, call_instructions) = call(name, args, context)
+      let length = case call_instructions {
+        [Call(_, _, length)] -> length
+        _ -> -1
+      }
 
       let generated =
         [
-          SetListMulti(destination_register, start, array_count),
+          SetListMulti(destination_register, start, array_count, length),
           ..call_instructions
         ]
         |> list.append(generated)
@@ -1825,13 +1825,31 @@ fn instruction_to_string(
         <> int.to_string(length),
       identation,
     )
-    SetListMulti(table, from, length) -> #(
+    SetListMulti(table, from, array_count, length) -> #(
       "SETLISTMULTI "
         <> "table: "
         <> int.to_string(table)
         <> ", "
         <> "starting: "
         <> int.to_string(from)
+        <> ", "
+        <> "array_count: "
+        <> int.to_string(array_count)
+        <> ", "
+        <> "length: "
+        <> int.to_string(length),
+      identation,
+    )
+    SetListVararg(table, from, array_count, length) -> #(
+      "SETLISTVARARG "
+        <> "table: "
+        <> int.to_string(table)
+        <> ", "
+        <> "starting: "
+        <> int.to_string(from)
+        <> ", "
+        <> "array_count: "
+        <> int.to_string(array_count)
         <> ", "
         <> "length: "
         <> int.to_string(length),
