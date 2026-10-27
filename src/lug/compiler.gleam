@@ -37,11 +37,7 @@ pub type Instruction {
   // table instructions
   NewTable(destination: Int, hash_count: Int, array_count: Int)
   GetTable(destination: Int, table: Int, key: Int)
-  GetField(table: Int, destination: Int, key: Constant)
-  GetTableUp(destination: Int, table: Int, index: Int)
   SetTable(table: Int, key: Int, value: Int)
-  SetTableUp(index: Int, key: Int, value: Int)
-  SetField(table: Int, key: Int, value: Int)
   SetList(table: Int, from: Int, length: Int)
   SetListMulti(table: Int, from: Int, array_count: Int, length: Int)
   SetListVararg(table: Int, from: Int, array_count: Int, length: Int)
@@ -68,7 +64,6 @@ pub type Instruction {
     body: List(Instruction),
   )
   ForTest(destination: Int, left: Int, right: Int, by: Int)
-  ForLoop(start: Int, identifier: Int, body: List(Instruction))
   TForLoop(start: Int, identifier: Int, count: Int, body: List(Instruction))
   Break
 
@@ -494,7 +489,7 @@ fn do_assignment(
 
       case key {
         parser.LiteralString(_, name) -> #(advance(context), [
-          SetField(table_register, context.next_register, value_register),
+          SetTable(table_register, context.next_register, value_register),
           LoadConstant(context.next_register, String(name)),
           ..table_instructions
         ])
@@ -783,7 +778,7 @@ fn function_declaration(
       let #(context, name_register, name_instructions) = variable(name, context)
 
       #(advance(context), [
-        SetField(name_register, context.next_register, closure_register),
+        SetTable(name_register, context.next_register, closure_register),
         LoadConstant(context.next_register, String(key)),
         ..list.append(name_instructions, closure_instructions)
       ])
@@ -809,7 +804,7 @@ fn function_declaration(
         |> list.append(closure_instructions)
 
       #(advance(context), [
-        SetField(table_register, context.next_register, closure_register),
+        SetTable(table_register, context.next_register, closure_register),
         LoadConstant(context.next_register, String(key)),
         ..generated
       ])
@@ -1408,7 +1403,7 @@ fn table(
         expression(value, context)
       let #(context, key_instructions) = case key {
         parser.LiteralString(_, name) -> #(advance(context), [
-          SetField(destination_register, context.next_register, value_register),
+          SetTable(destination_register, context.next_register, value_register),
           LoadConstant(context.next_register, String(name)),
         ])
         _ -> {
@@ -1748,56 +1743,8 @@ fn instruction_to_string(
         <> int.to_string(index),
       identation,
     )
-    GetTableUp(destination, table, index) -> #(
-      "GETTABLEUP "
-        <> "to: "
-        <> int.to_string(destination)
-        <> ", "
-        <> "table: "
-        <> int.to_string(table)
-        <> ", "
-        <> "upvalue: "
-        <> int.to_string(index),
-      identation,
-    )
-    GetField(table, destination, key) -> #(
-      "GETFIELD "
-        <> "to: "
-        <> int.to_string(destination)
-        <> ", "
-        <> "table: "
-        <> int.to_string(table)
-        <> ", "
-        <> "key: "
-        <> constant_to_string(key),
-      identation,
-    )
     SetTable(table, key, value) -> #(
       "SETTABLE "
-        <> "table: "
-        <> int.to_string(table)
-        <> ", "
-        <> "key: "
-        <> int.to_string(key)
-        <> ", "
-        <> "value: "
-        <> int.to_string(value),
-      identation,
-    )
-    SetTableUp(index, key, value) -> #(
-      "SETTABLEUP "
-        <> "upvalue: "
-        <> int.to_string(index)
-        <> ", "
-        <> "key: "
-        <> int.to_string(key)
-        <> ", "
-        <> "value: "
-        <> int.to_string(value),
-      identation,
-    )
-    SetField(table, key, value) -> #(
-      "SETFIELD "
         <> "table: "
         <> int.to_string(table)
         <> ", "
@@ -1983,31 +1930,6 @@ fn instruction_to_string(
           <> string.repeat("    ", identation)
           <> "until has_truthy: "
           <> int.to_string(condition),
-        identation,
-      )
-    }
-    ForLoop(start, identifier, body) -> {
-      let body =
-        list.fold(body, "", fn(acc, instruction) {
-          let #(instruction, _) =
-            instruction_to_string(instruction, identation + 1)
-
-          acc <> string.repeat("    ", identation + 1) <> instruction <> "\n"
-        })
-
-      #(
-        "for identifier: "
-          <> int.to_string(identifier)
-          <> ", init: "
-          <> int.to_string(start)
-          <> ", step: "
-          <> int.to_string(start + 1)
-          <> ", limit: "
-          <> int.to_string(start + 2)
-          <> " loop\n"
-          <> body
-          <> string.repeat("    ", identation)
-          <> "end",
         identation,
       )
     }
