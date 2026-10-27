@@ -29,9 +29,9 @@ pub type Instruction {
   // move instructions
   Move(destination: Int, source: Int)
   LoadConstant(destination: Int, value: Constant)
-  GetGlobal(destination: Int, key: Constant)
+  GetGlobal(destination: Int, name: String)
+  SetGlobal(name: String, value: Int)
   GetUpvalue(destination: Int, index: Int)
-  SetGlobal(key: Constant, value: Int)
   SetUpvalue(index: Int, value: Int)
 
   // table instructions
@@ -484,7 +484,7 @@ fn do_assignment(
               SetUpvalue(var_register, value_register),
             ])
             option.None -> #(context, [
-              SetGlobal(String(name), value_register),
+              SetGlobal(name, value_register),
             ])
           }
       }
@@ -775,7 +775,7 @@ fn function_declaration(
 
   case name, list.reverse(subfields) {
     name, [] -> #(context, [
-      SetGlobal(String(name), closure_register),
+      SetGlobal(name, closure_register),
       ..closure_instructions
     ])
 
@@ -1135,7 +1135,7 @@ fn variable(
           GetUpvalue(context.next_register, var_register),
         ])
         option.None -> #(advance(context), context.next_register, [
-          GetGlobal(context.next_register, String(var)),
+          GetGlobal(context.next_register, var),
         ])
       }
   }
@@ -1693,13 +1693,13 @@ fn instruction_to_string(
         <> constant_to_string(constant),
       identation,
     )
-    GetGlobal(destination, key) -> #(
+    GetGlobal(destination, name) -> #(
       "GETGLOBAL "
         <> "to: "
         <> int.to_string(destination)
         <> ", "
-        <> "key: "
-        <> constant_to_string(key),
+        <> "name: "
+        <> name,
       identation,
     )
     GetUpvalue(destination, index) -> #(
@@ -1711,13 +1711,8 @@ fn instruction_to_string(
         <> int.to_string(index),
       identation,
     )
-    SetGlobal(key, value) -> #(
-      "SETGLOBAL"
-        <> "field: "
-        <> constant_to_string(key)
-        <> ", "
-        <> "to: "
-        <> int.to_string(value),
+    SetGlobal(name, value) -> #(
+      "SETGLOBAL" <> "name: " <> name <> ", " <> "to: " <> int.to_string(value),
       identation,
     )
     SetUpvalue(value, index) -> #(
