@@ -80,6 +80,7 @@ pub type Instruction {
   FloorDiv(destination: Int, left: Int, right: Int)
   Pow(destination: Int, left: Int, right: Int)
   Mod(destination: Int, left: Int, right: Int)
+  Unm(destination: Int, value: Int)
 
   // equality instructions
   Eq(destination: Int, left: Int, right: Int)
@@ -102,7 +103,6 @@ pub type Instruction {
   Or(destination: Int, left: Int, right: Int)
   Not(destination: Int, source: Int)
 
-  Negate(destination: Int, value: Int)
   Length(destination: Int, value: Int)
   Concat(destination: Int, left: Int, right: Int)
 }
@@ -1505,7 +1505,7 @@ fn unary_operation(
 ) -> #(Context, Int, List(Instruction)) {
   let #(context, expr_reg, body_instructions) = expression(expr, context)
   let operation_instruction = case operator {
-    parser.NumeralNegation -> Negate(context.next_register, expr_reg)
+    parser.NumeralNegation -> Unm(context.next_register, expr_reg)
     parser.BooleanNegation -> Not(context.next_register, expr_reg)
     parser.BitwiseNegation -> BwNot(context.next_register, expr_reg)
     parser.Length -> Length(context.next_register, expr_reg)
@@ -2318,8 +2318,8 @@ fn instruction_to_string(
         <> int.to_string(value),
       identation,
     )
-    Negate(destination, value) -> #(
-      "NEGATE "
+    Unm(destination, value) -> #(
+      "UNM "
         <> "to: "
         <> int.to_string(destination)
         <> ", "
