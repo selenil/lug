@@ -64,7 +64,7 @@ pub type Instruction {
     body: List(Instruction),
   )
   ForTest(destination: Int, left: Int, right: Int, by: Int)
-  TForLoop(start: Int, identifier: Int, count: Int, body: List(Instruction))
+  TForLoop(start: Int, count: Int, body: List(Instruction))
   Break
 
   // arithmetic instructions
@@ -676,40 +676,29 @@ fn for_in(
   let start = context.next_register
   let context = Context(..context, next_register: start + 3)
 
-  let #(context, iterator_instructions) = case in {
-    [in] -> {
-      let #(context, _, iterator_instructions) = expression(in, context)
-      #(context, iterator_instructions)
-    }
+  let #(context, iterators_registers, iterators_instructions) =
+    list.fold(in, #(context, [], []), fn(acc, iterator) {
+      let #(context, registers, generated) = acc
+      let #(context, iterator_register, iterator_instructions) =
+        expression(iterator, context)
 
-    _ -> {
-      let #(context, iterators_registers, iterators_instructions) =
-        list.fold(in, #(context, [], []), fn(acc, iterator) {
-          let #(context, registers, generated) = acc
-          let #(context, iterator_register, iterator_instructions) =
-            expression(iterator, context)
+      #(
+        context,
+        [iterator_register, ..registers],
+        list.append(generated, iterator_instructions),
+      )
+    })
 
-          #(
-            context,
-            [iterator_register, ..registers],
-            list.append(generated, iterator_instructions),
-          )
-        })
-
-      let move =
-        list.reverse(iterators_registers)
-        |> list.fold([], fn(acc, source) {
-          let target = start + 1
-          case source == target {
-            True -> []
-            False -> [Move(target, source), ..acc]
-          }
-        })
-        |> list.reverse
-
-      #(context, list.append(move, iterators_instructions))
-    }
-  }
+  let move =
+    list.reverse(iterators_registers)
+    |> list.index_fold([], fn(acc, source, i) {
+      let target = start + 3 + i
+      case source == target {
+        True -> []
+        False -> [Move(target, source), ..acc]
+      }
+    })
+    |> list.reverse
 
   let names_count = list.length(names)
 
@@ -728,8 +717,8 @@ fn for_in(
   }
 
   let generated = [
-    TForLoop(start, context.next_register, names_count, body),
-    ..iterator_instructions
+    TForLoop(start, names_count, body),
+    ..list.append(move, iterators_instructions)
   ]
 
   #(context, generated)
@@ -1933,7 +1922,7 @@ fn instruction_to_string(
         identation,
       )
     }
-    TForLoop(start, identifier, count, body) -> {
+    TForLoop(start, count, body) -> {
       let body =
         list.fold(body, "", fn(acc, instruction) {
           let #(instruction, _) =
@@ -1943,10 +1932,7 @@ fn instruction_to_string(
         })
 
       let names =
-        int.range(from: 0, to: count, with: [], run: fn(acc, i) {
-          [int.to_string(identifier + i + 1), ..acc]
-        })
-        |> list.reverse
+        list.repeat("_", count)
         |> string.join(", ")
 
       let iterators =
