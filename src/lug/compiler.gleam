@@ -38,7 +38,7 @@ pub type Instruction {
   NewTable(destination: Int, hash_count: Int, array_count: Int)
   GetTable(destination: Int, table: Int, key: Int)
   SetTable(table: Int, key: Int, value: Int)
-  SetList(table: Int, from: Int, length: Int)
+  SetList(table: Int, length: Int)
   SetListMulti(table: Int, from: Int, array_count: Int, length: Int)
   SetListVararg(table: Int, from: Int, array_count: Int, length: Int)
 
@@ -1405,7 +1405,7 @@ fn table(
   let #(context, generated) =
     list.index_fold(values, #(context, generated), fn(acc, value, i) {
       let #(context, instructions) = acc
-      let target_register = context.next_register + i
+      let target_register = destination_register + i + 1
 
       let #(context, value_register, value_instructions) =
         expression(value, context)
@@ -1444,7 +1444,7 @@ fn table(
     _ -> {
       let generated = case generated {
         [NewTable(_, _, _)] -> generated
-        _ -> [SetList(destination_register, start, array_count), ..generated]
+        _ -> [SetList(destination_register, array_count), ..generated]
       }
 
       #(context, generated)
@@ -1812,13 +1812,10 @@ fn instruction_to_string(
         <> int.to_string(value),
       identation,
     )
-    SetList(table, from, length) -> #(
+    SetList(table, length) -> #(
       "SETLIST "
         <> "table: "
         <> int.to_string(table)
-        <> ", "
-        <> "starting: "
-        <> int.to_string(from)
         <> ", "
         <> "length: "
         <> int.to_string(length),
