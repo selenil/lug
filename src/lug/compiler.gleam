@@ -17,7 +17,7 @@ pub opaque type Chunk {
     source: option.Option(String),
     instructions: List(Instruction),
     prototypes: dict.Dict(Int, Chunk),
-    upvals: dict.Dict(String, Int),
+    upvalues: dict.Dict(Int, Int),
     constant_registers: List(AttributeRegister),
     arg_count: Int,
     is_vararg: Bool,
@@ -123,20 +123,27 @@ pub type Context {
     scopes: dict.Dict(Int, Scope),
     constant_registers: List(AttributeRegister),
     next_register: Int,
+    next_upvalue: Int,
     next_prototype: Int,
     next_scope: Int,
     parent_scope: Int,
     prototypes: dict.Dict(Int, Chunk),
+    upvalues: dict.Dict(Int, String),
   )
 }
 
 pub type Scope {
-  Scope(vars: dict.Dict(String, Variable), parent: Int)
+  Scope(vars: dict.Dict(String, Variable), parent: Int, kind: ScopeKind)
+}
+
+pub type ScopeKind {
+  Block
+  Function
 }
 
 pub type Variable {
-  Local(Int)
-  Upvalue(Int)
+  Local(register: Int)
+  Upvalue(register: Int)
 }
 
 pub type AttributeRegister {
@@ -168,10 +175,12 @@ fn init_context() -> Context {
     scopes: dict.new(),
     constant_registers: [],
     next_register: 1,
+    next_upvalue: 0,
     next_prototype: 0,
     next_scope: 0,
     parent_scope: -1,
     prototypes: dict.new(),
+    upvalues: dict.new(),
   )
 }
 
@@ -214,8 +223,8 @@ fn find_variable_in_parent_scopes(
 
 fn enter_block(
   context: Context,
-  then: fn(Context) -> #(Context, a),
-) -> #(Context, a) {
+  then: fn(Context) -> #(Context, List(Instruction)),
+) -> #(Context, List(Instruction)) {
   let scope = context.next_scope
   let context =
     Context(
@@ -224,19 +233,19 @@ fn enter_block(
       scopes: dict.insert(
         context.scopes,
         scope,
-        Scope(dict.new(), context.parent_scope),
+        Scope(dict.new(), context.parent_scope, Block),
       ),
       parent_scope: scope,
     )
 
-  let #(context, result) = then(context)
+  let #(context, generated) = then(context)
   #(
     Context(
       ..context,
       next_scope: context.next_scope - 1,
       parent_scope: context.parent_scope - 1,
     ),
-    result,
+    generated,
   )
 }
 
@@ -248,15 +257,19 @@ fn enter_function(
   let fun_scope = context.next_scope
   let context =
     Context(
-      ..context,
+      prototypes: dict.new(),
+      next_prototype: 0,
+      constant_registers: [],
       next_register: 1,
+      next_upvalue: 0,
       next_scope: context.next_scope + 1,
       scopes: dict.insert(
         context.scopes,
         fun_scope,
-        Scope(dict.new(), context.parent_scope),
+        Scope(dict.new(), context.parent_scope, Function),
       ),
       parent_scope: fun_scope,
+      upvalues: dict.new(),
     )
 
   let #(context, result) = then(context)
@@ -278,7 +291,7 @@ fn init_chunk(ast: parser.Block) -> Chunk {
     source: option.None,
     instructions: [],
     prototypes: dict.new(),
-    upvals: dict.new(),
+    upvalues: dict.new(),
     constant_registers: [],
     arg_count: 0,
     is_vararg: True,
@@ -471,9 +484,28 @@ fn do_assignment(
         Error(_) ->
           case find_variable_in_parent_scopes(context, name, scope_index) {
             option.Some(Local(var_register)) ->
-              case var_register == value_register {
-                True -> #(context, [])
-                False -> #(context, [Move(var_register, value_register)])
+              case scope.kind {
+                Block -> {
+                  case var_register == value_register {
+                    True -> #(context, [])
+                    False -> #(context, [Move(var_register, value_register)])
+                  }
+                }
+                Function -> {
+                  let index = context.next_upvalue
+                  let context =
+                    insert_variable_in_scope(
+                      Context(..context, next_upvalue: index + 1),
+                      context.next_scope - 1,
+                      name,
+                      Upvalue(var_register),
+                    )
+                    |> advance
+
+                  #(context, [
+                    SetUpvalue(index, value_register),
+                  ])
+                }
               }
             option.Some(Upvalue(var_register)) -> #(context, [
               SetUpvalue(var_register, value_register),
@@ -1182,7 +1214,25 @@ fn variable(
     ])
     Error(_) ->
       case find_variable_in_parent_scopes(context, var, scope_index) {
-        option.Some(Local(var_register)) -> #(context, var_register, [])
+        option.Some(Local(var_register)) ->
+          case scope.kind {
+            Block -> #(context, var_register, [])
+            Function -> {
+              let index = context.next_upvalue
+              let context =
+                insert_variable_in_scope(
+                  Context(..context, next_upvalue: index + 1),
+                  context.next_scope - 1,
+                  var,
+                  Upvalue(var_register),
+                )
+                |> advance
+
+              #(context, context.next_register, [
+                GetUpvalue(context.next_register, index),
+              ])
+            }
+          }
         option.Some(Upvalue(var_register)) -> #(advance(context), var_register, [
           GetUpvalue(context.next_register, var_register),
         ])
@@ -1237,11 +1287,7 @@ fn closure(
         }
       })
 
-    do_block(
-      body.statements,
-      Context(..context, prototypes: dict.new(), constant_registers: []),
-      [],
-    )
+    do_block(body.statements, context, [])
     |> pair.map_second(fn(body) {
       case has_vararg {
         True -> [VarargPrep(arg_count), ..body]
@@ -1250,13 +1296,25 @@ fn closure(
     })
   }
 
+  let assert Ok(scope) = dict.get(context.scopes, context.next_scope)
+  let #(upvalues, _) =
+    dict.filter(scope.vars, fn(_key, value) {
+      case value {
+        Upvalue(_) -> True
+        _ -> False
+      }
+    })
+    |> dict.fold(#(dict.new(), 0), fn(acc, _key, value) {
+      #(dict.insert(acc.0, acc.1, value.register), acc.1 + 1)
+    })
+
   let prototype =
     Chunk(
       name:,
       instructions:,
       source: option.None,
-      prototypes:,
-      upvals:,
+      prototypes: context.prototypes,
+      upvalues: dict.new(),
       constant_registers: context.constant_registers,
       arg_count:,
       is_vararg: has_vararg,
@@ -1270,10 +1328,14 @@ fn closure(
       next_prototype: prototype_index + 1,
       prototypes: dict.insert(prototypes, prototype_index, prototype),
     )
+  let generated =
+    dict.fold(upvalues, [], fn(acc, upvalue_index, local_register) {
+      [Move(upvalue_index, local_register), ..acc]
+    })
+    |> list.reverse
+    |> list.append([Closure(context.next_register, prototype_index)])
 
-  #(advance(context), context.next_register, [
-    Closure(context.next_register, prototype_index),
-  ])
+  #(advance(context), context.next_register, generated)
 }
 
 fn call(
