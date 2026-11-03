@@ -894,19 +894,34 @@ fn function_declaration(
         |> list.reverse
 
       let generated =
-        list.append(subfields_instructions, name_instructions)
-        |> list.append([Move(table_register, name_register)])
-        |> list.append(closure_instructions)
+        list.append(
+          [
+            SetTable(table_register, context.next_register, closure_register),
+            LoadConstant(context.next_register, String(key)),
+          ],
+          closure_instructions,
+        )
+        |> list.append(subfields_instructions)
+        |> list.append([
+          Move(table_register, name_register),
+          ..name_instructions
+        ])
 
-      #(advance(context), [
-        SetTable(table_register, context.next_register, closure_register),
-        LoadConstant(context.next_register, String(key)),
-        ..generated
-      ])
+      #(advance(context), generated)
     }
   }
 }
 
+// Local function declarations are lowered to local variable with the function's name plus
+// an assignment of that variable to a function expression, then compiled as such.
+//
+// For example:
+//
+// local function f(a, b) return a + b end
+//
+// is compiled as:
+//
+// local f; f = function(a, b) return a + b end
 fn local_function(
   span: parser.Span,
   name: String,
