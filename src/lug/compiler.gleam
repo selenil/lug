@@ -625,10 +625,17 @@ fn else_if(
       let #(context, else_if_block_instructions) = block(else_if_block, context)
       let #(context, else_instructions) = else_if(rest, else_, context)
 
-      #(context, [
-        Test(condition_register, else_if_block_instructions, else_instructions),
-        ..condition_instructions
-      ])
+      #(
+        context,
+        list.reverse([
+          Test(
+            condition_register,
+            else_if_block_instructions,
+            else_instructions,
+          ),
+          ..condition_instructions
+        ]),
+      )
     }
   }
 }
