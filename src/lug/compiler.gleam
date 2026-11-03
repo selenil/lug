@@ -388,17 +388,16 @@ fn assignment(
           )
         })
 
-      let values_register = list.reverse(values_registers)
-
       let names_count = list.length(names)
       let values_count = list.length(values_registers)
 
+      let values_registers = list.reverse(values_registers)
       let names_and_values = case names_count == values_count {
         True -> list.zip(names, values_registers)
         False -> {
           let diff = names_count - values_count
           let values_registers =
-            list.append(values_register, list.repeat(-1, diff))
+            list.append(values_registers, list.repeat(-1, diff))
 
           list.zip(names, values_registers)
         }
