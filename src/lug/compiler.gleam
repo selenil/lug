@@ -1218,6 +1218,7 @@ fn variable(
             Block -> #(context, var_register, [])
             Function -> {
               let index = context.next_upvalue
+              let destination = context.next_register
               let context =
                 insert_variable_in_scope(
                   Context(..context, next_upvalue: index + 1),
@@ -1227,8 +1228,8 @@ fn variable(
                 )
                 |> advance
 
-              #(context, context.next_register, [
-                GetUpvalue(context.next_register, index),
+              #(context, destination, [
+                GetUpvalue(destination, index),
               ])
             }
           }
