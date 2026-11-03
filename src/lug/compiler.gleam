@@ -739,6 +739,8 @@ fn for_in(
       )
     })
 
+  let iterators_instructions = list.reverse(iterators_instructions)
+
   let move =
     list.reverse(iterators_registers)
     |> list.index_fold([], fn(acc, source, i) {
@@ -748,20 +750,27 @@ fn for_in(
         False -> [Move(target, source), ..acc]
       }
     })
-    |> list.reverse
 
   let #(context, generated) = case final {
     option.Some(parser.Vararg(_)) -> {
       let iterators_count = list.length(iterators)
       let diff = 4 - iterators_count
+      let move =
+        int.range(from: 0, to: diff, with: [], run: fn(acc, i) {
+          let target = start + i + iterators_count
+          let source = context.next_register + i
+          [Move(target, source), ..acc]
+        })
+        |> list.append(move)
+
       let generated =
-        list.append(
-          move,
-          list.reverse([
-            Vararg(start + iterators_count, diff),
-            ..iterators_instructions
-          ]),
-        )
+        list.append(move, [
+          Vararg(context.next_register, diff),
+          ..iterators_instructions
+        ])
+
+      let context =
+        Context(..context, next_register: context.next_register + diff)
 
       #(context, generated)
     }
@@ -771,12 +780,18 @@ fn for_in(
       let #(context, call_register, call_instructions) =
         call(name, args, context)
 
-      let call_instructions = case list.reverse(call_instructions) {
+      let call_instructions = case call_instructions {
         [Call(..) as call, ..rest] ->
           [Call(..call, result_count: diff), ..rest] |> list.reverse
         _ -> call_instructions
       }
 
+      let context =
+        Context(
+          ..context,
+          next_register: context.next_register
+            + { diff - list.length(args) - 1 },
+        )
       case call_register + 1 == start + iterators_count {
         True -> #(
           context,
@@ -794,22 +809,41 @@ fn for_in(
                 [Move(destination, i), ..acc]
               },
             )
-            |> list.reverse
 
           #(
             context,
             list.append(
               iterators_instructions,
-              list.append(call_instructions, move),
+              list.append(move, list.reverse(call_instructions)),
             ),
           )
         }
       }
     }
-    _ -> #(context, list.append(move, iterators_instructions))
-  }
+    _ -> {
+      let iterators_count = list.length(iterators)
+      let diff = 4 - iterators_count
 
-  let names_count = list.length(names)
+      case diff {
+        0 -> #(context, list.append(move, iterators_instructions))
+        diff -> {
+          let #(context, move) =
+            int.range(from: 0, to: diff, with: #(context, []), run: fn(acc, i) {
+              let #(context, acc) = acc
+              let target = start + iterators_count + i
+              #(advance(context), [
+                Move(target, context.next_register),
+                LoadConstant(context.next_register, Nil),
+                ..acc
+              ])
+            })
+            |> pair.map_second(list.append(_, move))
+
+          #(context, list.append(move, iterators_instructions))
+        }
+      }
+    }
+  }
 
   let #(context, body) = {
     use context <- enter_block(context)
@@ -824,6 +858,8 @@ fn for_in(
     })
     |> do_block(body.statements, _, [])
   }
+
+  let names_count = list.length(names)
 
   let generated = [TForLoop(start, names_count, body), ..generated]
 
