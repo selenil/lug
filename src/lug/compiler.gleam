@@ -405,6 +405,9 @@ fn assignment(
         _ -> #(option.None, expressions)
       }
 
+      let names_count = list.length(names)
+      let values_count = list.length(values)
+
       let #(context, values_registers, values_instructions) =
         list.fold(values, #(context, [], []), fn(acc, value) {
           let #(context, registers, generated) = acc
@@ -416,74 +419,84 @@ fn assignment(
             list.append(value_instructions, generated),
           )
         })
-
-      let names_count = list.length(names)
-      let values_count = list.length(values_registers)
-
       let values_registers = list.reverse(values_registers)
-      let names_and_values = case names_count == values_count {
-        True -> list.zip(names, values_registers)
-        False -> {
-          let diff = names_count - values_count
-          let values_registers =
-            list.append(values_registers, list.repeat(-1, diff))
 
-          list.zip(names, values_registers)
-        }
-      }
+      let #(names, stray_names) =
+        list.index_fold(names, #([], []), fn(acc, name, i) {
+          case i + 1 <= values_count {
+            True -> #([name, ..acc.0], acc.1)
+            False -> #(acc.0, [name, ..acc.1])
+          }
+        })
 
-      let #(context, values_instructions) = case final {
+      let names = list.reverse(names)
+      let stray_names = list.reverse(stray_names)
+
+      let #(context, final_register, values_instructions) = case final {
         option.Some(parser.Vararg(_)) -> {
           let diff = names_count - values_count
-          #(Context(..context, next_register: context.next_register + diff), [
-            Vararg(context.next_register, diff),
-            ..values_instructions
-          ])
+          #(
+            Context(..context, next_register: context.next_register + diff),
+            context.next_register,
+            [Vararg(context.next_register, diff), ..values_instructions],
+          )
         }
         option.Some(parser.Call(_, _, _) as call) -> {
-          case expression(call, context) {
-            #(
-              context,
-              call_register,
-              [Call(_, _, _) as call_instruction, ..rest],
-            ) -> {
-              let diff = names_count - values_count
-              let context =
-                Context(..context, next_register: call_register + diff)
+          let #(context, call_register, call_instructions) =
+            expression(call, context)
+          let diff = names_count - values_count
+          let context = Context(..context, next_register: call_register + diff)
 
-              #(context, [Call(..call_instruction, result_count: diff), ..rest])
-            }
-            #(context, _, call_instructions) -> #(context, call_instructions)
+          let call_instructions = case call_instructions {
+            [Call(_, _, _) as call, ..rest] -> [
+              Call(..call, result_count: diff),
+              ..rest
+            ]
+            _ -> call_instructions
           }
+
+          #(context, call_register, call_instructions)
         }
-        _ -> #(context, values_instructions)
+        _ -> #(context, -1, values_instructions)
       }
 
       let #(context, assign_instructions) =
-        list.fold(names_and_values, #(context, []), fn(acc, pair) {
+        list.zip(names, values_registers)
+        |> list.fold(#(context, []), fn(acc, pair) {
           let #(context, generated) = acc
-          case pair {
-            #(name, -1) -> {
-              let start = context.next_register
-              let context = advance(context)
-              let #(context, name_instructions) =
-                do_assignment(name, start, context)
+          let #(name, value_register) = pair
 
-              #(
-                context,
-                [LoadConstant(start, Nil), ..name_instructions]
-                  |> list.append(generated),
-              )
-            }
+          let #(context, name_instructions) =
+            do_assignment(name, value_register, context)
 
-            #(name, value_register) -> {
-              let #(context, name_instructions) =
-                do_assignment(name, value_register, context)
-
-              #(context, list.append(name_instructions, generated))
-            }
-          }
+          #(context, list.append(name_instructions, generated))
         })
+
+      let #(context, assign_instructions) =
+        list.index_fold(
+          stray_names,
+          #(context, assign_instructions),
+          fn(acc, name, i) {
+            let #(context, generated) = acc
+            case final {
+              option.Some(_) -> {
+                let #(context, name_instructions) =
+                  do_assignment(name, final_register + i, context)
+
+                #(context, list.append(name_instructions, generated))
+              }
+              _ -> {
+                let #(context, name_instructions) =
+                  do_assignment(name, context.next_register, context)
+
+                #(advance(context), [
+                  LoadConstant(context.next_register, Nil),
+                  ..list.append(name_instructions, generated)
+                ])
+              }
+            }
+          },
+        )
 
       #(context, list.append(assign_instructions, values_instructions))
     }
