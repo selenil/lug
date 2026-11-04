@@ -411,8 +411,24 @@ fn assignment(
       let #(context, values_registers, values_instructions) =
         list.fold(values, #(context, [], []), fn(acc, value) {
           let #(context, registers, generated) = acc
-          let #(context, value_register, value_instructions) =
-            expression(value, context)
+          // for calls and varargs expressions in the middle,
+          // use just one result/value from them
+          let #(context, value_register, value_instructions) = case value {
+            parser.Vararg(_) -> #(advance(context), context.next_register, [
+              Vararg(context.next_register, 1),
+            ])
+            parser.Call(_, name, args) ->
+              case call(name, args, context) {
+                #(context, call_register, [Call(_, _, _) as call, ..rest]) -> #(
+                  context,
+                  call_register,
+                  [Call(..call, result_count: 1), ..rest],
+                )
+                other -> other
+              }
+            _ -> expression(value, context)
+          }
+
           #(
             context,
             [value_register, ..registers],
@@ -771,8 +787,23 @@ fn for_in(
   let #(context, iterators_registers, iterators_instructions) =
     list.fold(iterators, #(context, [], []), fn(acc, iterator) {
       let #(context, registers, generated) = acc
-      let #(context, iterator_register, iterator_instructions) =
-        expression(iterator, context)
+      // for calls and varargs expressions in the middle,
+      // use just one result/value from them
+      let #(context, iterator_register, iterator_instructions) = case iterator {
+        parser.Vararg(_) -> #(advance(context), context.next_register, [
+          Vararg(context.next_register, 1),
+        ])
+        parser.Call(_, name, args) ->
+          case call(name, args, context) {
+            #(context, call_register, [Call(_, _, _) as call, ..rest]) -> #(
+              context,
+              call_register,
+              [Call(..call, result_count: 1), ..rest],
+            )
+            other -> other
+          }
+        _ -> expression(iterator, context)
+      }
 
       #(
         context,
@@ -1489,7 +1520,24 @@ fn arguments(
   let #(context, args_instructions, args_registers) =
     list.fold(args, #(context, [], []), fn(acc, arg) {
       let #(context, instructions, registers) = acc
-      let #(context, arg_register, arg_instructions) = expression(arg, context)
+
+      // for calls and varargs expressions in the middle,
+      // use just one result/value from them
+      let #(context, arg_register, arg_instructions) = case arg {
+        parser.Vararg(_) -> #(advance(context), context.next_register, [
+          Vararg(context.next_register, 1),
+        ])
+        parser.Call(_, name, args) ->
+          case call(name, args, context) {
+            #(context, call_register, [Call(_, _, _) as call, ..rest]) -> #(
+              context,
+              call_register,
+              [Call(..call, result_count: 1), ..rest],
+            )
+            other -> other
+          }
+        _ -> expression(arg, context)
+      }
 
       #(context, list.append(arg_instructions, instructions), [
         arg_register,
@@ -1559,8 +1607,23 @@ fn table(
       let #(context, instructions) = acc
       let target_register = destination_register + i + 1
 
-      let #(context, value_register, value_instructions) =
-        expression(value, context)
+      // for calls and varargs expressions in the middle,
+      // use just one result/value from them
+      let #(context, value_register, value_instructions) = case value {
+        parser.Vararg(_) -> #(advance(context), context.next_register, [
+          Vararg(context.next_register, 1),
+        ])
+        parser.Call(_, name, args) ->
+          case call(name, args, context) {
+            #(context, call_register, [Call(_, _, _) as call, ..rest]) -> #(
+              context,
+              call_register,
+              [Call(..call, result_count: 1), ..rest],
+            )
+            other -> other
+          }
+        _ -> expression(value, context)
+      }
 
       case target_register == value_register {
         True -> #(context, list.append(value_instructions, instructions))
