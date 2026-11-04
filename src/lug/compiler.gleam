@@ -202,6 +202,15 @@ fn insert_variable_in_scope(
   )
 }
 
+fn find_variable_in_scope(
+  context: Context,
+  scope_index: Int,
+  name: String,
+) -> Result(Variable, Nil) {
+  let assert Ok(scope) = dict.get(context.scopes, scope_index)
+  dict.get(scope.vars, name)
+}
+
 fn find_variable_in_parent_scopes(
   context: Context,
   var: String,
@@ -301,7 +310,32 @@ fn init_chunk(ast: parser.Block) -> Chunk {
 
 fn block(block: parser.Block, context: Context) {
   use context <- enter_block(context)
-  do_block(block.statements, context, [])
+  // scan for local variables
+  list.fold(block.statements, context, fn(context, stmt) {
+    case stmt {
+      parser.LocalFunction(_, name, _, _) ->
+        insert_variable_in_scope(
+          context,
+          context.next_scope - 1,
+          name,
+          Local(context.next_register),
+        )
+        |> advance
+      parser.Local(_, names, _) ->
+        list.fold(names, context, fn(context, variable) {
+          let parser.AttributeName(_, name) = variable
+          insert_variable_in_scope(
+            context,
+            context.next_scope - 1,
+            name,
+            Local(context.next_register),
+          )
+          |> advance
+        })
+      _ -> context
+    }
+  })
+  |> do_block(block.statements, _, [])
 }
 
 fn do_block(
@@ -967,15 +1001,8 @@ fn local_function(
 ) -> #(Context, List(Instruction)) {
   let #(context, closure_register, closure_instructions) =
     closure(span, option.Some(name), parameters, body, context)
-  let destination = context.next_register
-  let context =
-    insert_variable_in_scope(
-      context,
-      context.next_scope - 1,
-      name,
-      Local(context.next_register),
-    )
-    |> advance
+  let assert Ok(Local(destination)) =
+    find_variable_in_scope(context, context.next_scope - 1, name)
 
   #(context, [Move(destination, closure_register), ..closure_instructions])
 }
@@ -1077,15 +1104,8 @@ fn local(
     |> list.fold(#(context, []), fn(acc, pair) {
       let #(context, generated) = acc
       let #(parser.AttributeName(_, name), index) = pair
-      let destination_register = context.next_register
-      let context =
-        insert_variable_in_scope(
-          context,
-          context.next_scope - 1,
-          name,
-          Local(destination_register),
-        )
-        |> advance
+      let assert Ok(Local(destination_register)) =
+        find_variable_in_scope(context, context.next_scope - 1, name)
 
       #(context, [Move(destination_register, index), ..generated])
     })
@@ -1097,15 +1117,8 @@ fn local(
       fn(acc, name, i) {
         let #(context, generated) = acc
         let parser.AttributeName(_, name) = name
-        let destination_register = context.next_register
-        let context =
-          insert_variable_in_scope(
-            context,
-            context.next_scope - 1,
-            name,
-            Local(destination_register),
-          )
-          |> advance
+        let assert Ok(Local(destination_register)) =
+          find_variable_in_scope(context, context.next_scope - 1, name)
 
         case final {
           option.Some(parser.Vararg(_)) -> #(context, [
