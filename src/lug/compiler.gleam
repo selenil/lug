@@ -39,16 +39,11 @@ pub type Instruction {
   GetTable(destination: Int, table: Int, key: Int)
   SetTable(table: Int, key: Int, value: Int)
   SetList(table: Int, length: Int)
-  SetListMulti(table: Int, from: Int, array_count: Int, length: Int)
-  SetListVararg(table: Int, from: Int, array_count: Int, length: Int)
 
   // function instructions
-  Vararg(start: Int, args: Int)
   VarargPrep(arg_count: Int)
   Call(base: Int, arg_count: Int, result_count: Int)
   Return(start: Int, result_count: Int)
-  ReturnMulti(start: Int, fixed_result_count: Int, result_count: Int)
-  ReturnVararg(start: Int, fixed_result_count: Int, result_count: Int)
   Closure(destination: Int, prototype: Int)
 
   // branching instructions
@@ -1038,7 +1033,7 @@ fn local(
           case call(name, args, context) {
             #(context, call_register, [Call(_, _, _) as call, ..rest]) -> #(
               context,
-              call_register + 1,
+              call_register,
               [Call(..call, result_count: 1), ..rest],
             )
             other -> other
@@ -1072,7 +1067,7 @@ fn local(
           let context = Context(..context, next_register: call_register + diff)
 
           #(
-            Context(..context, next_register: context.next_register + diff + 1),
+            Context(..context, next_register: context.next_register + diff),
             call_register,
             [Call(..call_instruction, result_count: diff), ..rest]
               |> list.append(values_instructions),
@@ -1126,7 +1121,7 @@ fn local(
             ..generated
           ])
           option.Some(parser.Call(_, _, _)) -> #(context, [
-            Move(destination_register, final_register + i + 1),
+            Move(destination_register, final_register + i),
             ..generated
           ])
           _ -> #(advance(context), [
@@ -1148,7 +1143,8 @@ fn return(
   case values {
     [] -> #(context, [Return(0, 0)])
     [parser.Vararg(_)] -> #(context, [
-      ReturnVararg(context.next_register, 0, -1),
+      Return(context.next_register, -1),
+      Vararg(context.next_register, -1),
     ])
     [parser.Call(_, name, args)] -> {
       let #(context, call_register, call_instructions) =
@@ -1158,7 +1154,7 @@ fn return(
         _ -> -1
       }
 
-      #(context, [ReturnMulti(call_register, 0, length), ..call_instructions])
+      #(context, [Return(call_register, length), ..call_instructions])
     }
     [value] -> {
       let #(context, value_register, value_instructions) =
@@ -1202,7 +1198,8 @@ fn return(
 
       case final {
         option.Some(parser.Vararg(_)) -> {
-          #(context, [ReturnVararg(start, result_count, -1), ..generated])
+          let vararg_start = start + result_count
+          #(context, [Return(start, -1), Vararg(vararg_start, -1), ..generated])
         }
         option.Some(parser.Call(_, name, args)) -> {
           let #(context, _, call_instructions) =
@@ -1213,13 +1210,13 @@ fn return(
             )
 
           let length = case call_instructions {
-            [Call(_, _, length), ..] -> length
+            [Call(_, _, length), ..] -> length + result_count
             _ -> -1
           }
 
           #(
             context,
-            [ReturnMulti(start, result_count, length), ..call_instructions]
+            [Return(start, length), ..call_instructions]
               |> list.append(generated),
           )
         }
@@ -1419,27 +1416,41 @@ fn call(
 
   let start = function_register
 
+  let #(final, args) = case list.reverse(args) {
+    [parser.Vararg(_) as final, ..args] -> #(
+      option.Some(final),
+      list.reverse(args),
+    )
+    [parser.Call(_, _, _) as final, ..args] -> #(
+      option.Some(final),
+      list.reverse(args),
+    )
+    _ -> #(option.None, args)
+  }
   let args_count = list.length(args)
   let context = Context(..context, next_register: start + args_count + 1)
 
-  case args {
-    [parser.Vararg(_), ..args] -> {
+  case final {
+    option.Some(parser.Vararg(_)) -> {
       let #(context, args_instructions) = arguments(args, start + 1, context)
 
-      let vararg_instruction = Vararg(start + args_count + 1, 0)
       let generated =
-        [Call(start, args_count, 1), vararg_instruction, ..args_instructions]
+        [
+          Call(start, -1, -1),
+          Vararg(start + args_count + 1, -1),
+          ..args_instructions
+        ]
         |> list.append(function_instructions)
 
       #(context, start, generated)
     }
-    [parser.Call(_, _, _) as nested_call, ..args] -> {
-      let #(_, args_instructions) = arguments(args, start + 1, context)
-
+    option.Some(parser.Call(_, _, _) as nested_call) -> {
+      let #(context, args_instructions) = arguments(args, start + 1, context)
       let #(context, _, nested_call_instructions) =
         expression(nested_call, context)
+
       let generated =
-        [Call(start, args_count, 1), ..nested_call_instructions]
+        [Call(start, -1, -1), ..nested_call_instructions]
         |> list.append(args_instructions)
         |> list.append(function_instructions)
 
@@ -1449,7 +1460,7 @@ fn call(
       let #(context, args_instructions) = arguments(args, start + 1, context)
 
       let generated =
-        [Call(start, args_count, 1), ..args_instructions]
+        [Call(start, args_count, -1), ..args_instructions]
         |> list.append(function_instructions)
 
       #(context, start, generated)
@@ -1508,14 +1519,8 @@ fn table(
   let array_part = list.reverse(array_part)
 
   let hash_count = list.length(hash_part)
-  let array_count = list.length(array_part)
 
-  let destination_register = context.next_register
-  let generated = [
-    NewTable(destination_register, hash_count, array_count),
-  ]
-
-  let #(final, values) = case list.reverse(array_part) {
+  let #(final, array_part) = case list.reverse(array_part) {
     [parser.Vararg(_) as final, ..values] -> #(
       option.Some(final),
       list.reverse(values),
@@ -1527,16 +1532,17 @@ fn table(
     _ -> #(option.None, array_part)
   }
 
-  let array_count = case final {
-    option.Some(_) -> array_count - 1
-    option.None -> array_count
-  }
+  let array_count = list.length(array_part)
+
+  let destination_register = context.next_register
+  let generated = [
+    NewTable(destination_register, hash_count, array_count),
+  ]
 
   let context = advance(context)
-  let start = context.next_register
 
   let #(context, generated) =
-    list.index_fold(values, #(context, generated), fn(acc, value, i) {
+    list.index_fold(array_part, #(context, generated), fn(acc, value, i) {
       let #(context, instructions) = acc
       let target_register = destination_register + i + 1
 
@@ -1554,22 +1560,20 @@ fn table(
 
   let #(context, generated) = case final {
     option.Some(parser.Vararg(_)) -> #(context, [
-      SetListVararg(destination_register, start, array_count, -1),
+      SetList(destination_register, -1),
+      Vararg(destination_register + array_count + 1, -1),
       ..generated
     ])
 
     option.Some(parser.Call(_, name, args)) -> {
       let #(context, _, call_instructions) = call(name, args, context)
       let length = case call_instructions {
-        [Call(_, _, length)] -> length
+        [Call(_, _, length)] -> length + array_count + 1
         _ -> -1
       }
 
       let generated =
-        [
-          SetListMulti(destination_register, start, array_count, length),
-          ..call_instructions
-        ]
+        [SetList(destination_register, length), ..call_instructions]
         |> list.append(generated)
 
       #(context, generated)
