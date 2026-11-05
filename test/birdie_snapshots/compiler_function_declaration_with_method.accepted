@@ -1,0 +1,19 @@
+---
+version: 2.0.0
+title: compiler__function_declaration_with_method
+---
+function M:fun() return true end
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    CLOSURE to: 1, prototype_index: 0
+    GETGLOBAL to: 2, name: M
+    LOADCONSTANT in: 3, constant: "fun"
+    SETTABLE table: 2, key: 3, value: 1
+end
+
+function M.fun(_) --from line 1 to line 1
+    LOADCONSTANT in: 2, constant: true
+    RETURN starting: 2, count: 1
+end

@@ -1,0 +1,22 @@
+---
+version: 2.0.0
+title: compiler__function_declaration_with_subfields
+---
+function M.field.fun() return true end
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    GETGLOBAL to: 2, name: M
+    MOVE to: 3, from: 2
+    LOADCONSTANT in: 4, constant: "field"
+    GETTABLE to: 3, table: 3, index: 4
+    CLOSURE to: 1, prototype_index: 0
+    LOADCONSTANT in: 4, constant: "fun"
+    SETTABLE table: 3, key: 4, value: 1
+end
+
+function M.field.fun() --from line 1 to line 1
+    LOADCONSTANT in: 1, constant: true
+    RETURN starting: 1, count: 1
+end

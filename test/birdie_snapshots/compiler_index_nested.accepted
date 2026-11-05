@@ -1,0 +1,18 @@
+---
+version: 2.0.0
+title: compiler__index_nested
+---
+return tbl[1][2][3]
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    GETGLOBAL to: 4, name: tbl
+    LOADCONSTANT in: 5, constant: 1
+    GETTABLE to: 3, table: 4, index: 5
+    LOADCONSTANT in: 6, constant: 2
+    GETTABLE to: 2, table: 3, index: 6
+    LOADCONSTANT in: 7, constant: 3
+    GETTABLE to: 1, table: 2, index: 7
+    RETURN starting: 1, count: 1
+end

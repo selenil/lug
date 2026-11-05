@@ -1,0 +1,19 @@
+---
+version: 2.0.0
+title: compiler__generic_for
+---
+for a in b do print(a) end
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    GETGLOBAL to: 1, name: b
+    LOADCONSTANT in: 2, constant: nil
+    LOADCONSTANT in: 3, constant: nil
+    LOADCONSTANT in: 4, constant: nil
+    for _ in _ loop
+        GETGLOBAL to: 6, name: print
+        MOVE to: 7, from: 5
+        CALL function: 6, arg_count: 1, result_count: -1
+    end
+end

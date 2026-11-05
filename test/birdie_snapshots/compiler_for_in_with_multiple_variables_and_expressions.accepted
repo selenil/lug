@@ -1,0 +1,21 @@
+---
+version: 2.0.0
+title: compiler__for_in_with_multiple_variables_and_expressions
+---
+for a, b, c in d, e, f do print(a, b, c) end
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    GETGLOBAL to: 1, name: d
+    GETGLOBAL to: 2, name: e
+    GETGLOBAL to: 3, name: f
+    LOADCONSTANT in: 4, constant: nil
+    for _, _, _ in _ loop
+        GETGLOBAL to: 8, name: print
+        MOVE to: 9, from: 5
+        MOVE to: 10, from: 6
+        MOVE to: 11, from: 7
+        CALL function: 8, arg_count: 3, result_count: -1
+    end
+end

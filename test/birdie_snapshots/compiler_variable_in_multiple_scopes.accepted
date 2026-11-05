@@ -1,0 +1,22 @@
+---
+version: 2.0.0
+title: compiler__variable_in_multiple_scopes
+---
+do
+  local b = 1
+  return b
+end
+
+do
+  local b = 2
+  return b
+end
+
+------------------------------
+
+function main(...) --from line 1 to line 9
+    LOADCONSTANT in: 1, constant: 1
+    RETURN starting: 1, count: 1
+    LOADCONSTANT in: 2, constant: 2
+    RETURN starting: 2, count: 1
+end

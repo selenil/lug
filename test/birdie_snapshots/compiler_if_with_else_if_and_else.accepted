@@ -1,0 +1,34 @@
+---
+version: 2.0.0
+title: compiler__if_with_else_if_and_else
+---
+if a == 0 then
+  return false
+elseif a == 1 then
+  return true
+else
+  return nil
+end
+
+------------------------------
+
+function main(...) --from line 1 to line 7
+    GETGLOBAL to: 2, name: a
+    LOADCONSTANT in: 3, constant: 0
+    EQ to: 1, left: 2, right: 3
+    if has_truthy: 1 then
+        LOADCONSTANT in: 4, constant: false
+        RETURN starting: 4, count: 1
+    else
+        GETGLOBAL to: 6, name: a
+        LOADCONSTANT in: 7, constant: 1
+        EQ to: 5, left: 6, right: 7
+        if has_truthy: 5 then
+            LOADCONSTANT in: 8, constant: true
+            RETURN starting: 8, count: 1
+        else
+            LOADCONSTANT in: 9, constant: nil
+            RETURN starting: 9, count: 1
+        end
+    end
+end

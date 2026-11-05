@@ -1,0 +1,17 @@
+---
+version: 2.0.0
+title: compiler__simple_if
+---
+if 1 == 1 then return false end
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    LOADCONSTANT in: 2, constant: 1
+    LOADCONSTANT in: 3, constant: 1
+    EQ to: 1, left: 2, right: 3
+    if has_truthy: 1 then
+        LOADCONSTANT in: 4, constant: false
+        RETURN starting: 4, count: 1
+    end
+end

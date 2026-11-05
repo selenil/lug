@@ -1,0 +1,20 @@
+---
+version: 2.0.0
+title: compiler__set_upvalue_test
+---
+local a = 1
+function set() a = 2 end
+
+------------------------------
+
+function main(...) --from line 1 to line 2
+    LOADCONSTANT in: 1, constant: 1
+    CLOSURE to: 2, prototype_index: 0
+    MOVE to: 0, from: 1
+    SETGLOBAL name: set, to: 2
+end
+
+function set() --from line 2 to line 2
+    LOADCONSTANT in: 1, constant: 2
+    SETUPVALUE upvalue: 0, to: 1
+end

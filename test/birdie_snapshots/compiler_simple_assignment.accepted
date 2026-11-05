@@ -1,0 +1,12 @@
+---
+version: 2.0.0
+title: compiler__simple_assignment
+---
+a = 1
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    LOADCONSTANT in: 1, constant: 1
+    SETGLOBAL name: a, to: 1
+end

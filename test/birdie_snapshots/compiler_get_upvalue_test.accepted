@@ -1,0 +1,21 @@
+---
+version: 2.0.0
+title: compiler__get_upvalue_test
+---
+local a = 1
+function add(x) return x + a end
+
+------------------------------
+
+function main(...) --from line 1 to line 2
+    LOADCONSTANT in: 1, constant: 1
+    CLOSURE to: 2, prototype_index: 0
+    MOVE to: 0, from: 1
+    SETGLOBAL name: add, to: 2
+end
+
+function add(_) --from line 2 to line 2
+    GETUPVALUE to: 3, upvalue: 0
+    ADD to: 2, left: 1, right: 3
+    RETURN starting: 2, count: 1
+end

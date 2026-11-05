@@ -1,0 +1,17 @@
+---
+version: 2.0.0
+title: compiler__variable_in_outer_scope
+---
+a = 2
+do
+  return a
+end
+
+------------------------------
+
+function main(...) --from line 1 to line 4
+    LOADCONSTANT in: 1, constant: 2
+    SETGLOBAL name: a, to: 1
+    GETGLOBAL to: 2, name: a
+    RETURN starting: 2, count: 1
+end

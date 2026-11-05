@@ -1,0 +1,21 @@
+---
+version: 2.0.0
+title: compiler__numeric_for
+---
+for i = 0, 5, 1 do print(i) end
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    LOADCONSTANT in: 3, constant: 0
+    MOVE to: 1, from: 3
+    LOADCONSTANT in: 4, constant: 5
+    LOADCONSTANT in: 5, constant: 1
+    loop
+        FORTEST to: 2, left: 1, right: 4, by: 5
+        GETGLOBAL to: 6, name: print
+        MOVE to: 7, from: 1
+        CALL function: 6, arg_count: 1, result_count: -1
+        ADD to: 1, left: 1, right: 5
+    until has_truthy: 2
+end

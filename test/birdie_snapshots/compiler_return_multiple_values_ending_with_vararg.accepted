@@ -1,0 +1,14 @@
+---
+version: 2.0.0
+title: compiler__return_multiple_values_ending_with_vararg
+---
+return 0, true, ...
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    LOADCONSTANT in: 1, constant: 0
+    LOADCONSTANT in: 2, constant: true
+    VARARG starting: 3, length: -1
+    RETURN starting: 1, count: -1
+end

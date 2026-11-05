@@ -1,0 +1,15 @@
+---
+version: 2.0.0
+title: compiler__local_function
+---
+local function id(x) return x end
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    CLOSURE to: 1, prototype_index: 0
+end
+
+function id(_) --from line 1 to line 1
+    RETURN starting: 1, count: 1
+end

@@ -1,0 +1,18 @@
+---
+version: 2.0.0
+title: compiler__assignment_index
+---
+a.b = 1; a['b'] = 2
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    LOADCONSTANT in: 1, constant: 1
+    GETGLOBAL to: 2, name: a
+    LOADCONSTANT in: 3, constant: "b"
+    SETTABLE table: 2, key: 3, value: 1
+    LOADCONSTANT in: 4, constant: 2
+    GETGLOBAL to: 5, name: a
+    LOADCONSTANT in: 6, constant: "b"
+    SETTABLE table: 5, key: 6, value: 4
+end

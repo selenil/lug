@@ -1,0 +1,15 @@
+---
+version: 2.0.0
+title: compiler__assignment_ending_with_vararg
+---
+a, b, c = 1, ...
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    LOADCONSTANT in: 1, constant: 1
+    SETGLOBAL name: a, to: 1
+    VARARG starting: 2, length: 2
+    SETGLOBAL name: b, to: 2
+    SETGLOBAL name: c, to: 3
+end
