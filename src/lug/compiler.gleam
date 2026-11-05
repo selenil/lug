@@ -965,16 +965,6 @@ fn function_declaration(
   }
 }
 
-// Local function declarations are lowered to local variable with the function's name plus
-// an assignment of that variable to a function expression, then compiled as such.
-//
-// For example:
-//
-// local function f(a, b) return a + b end
-//
-// is compiled as:
-//
-// local f; f = function(a, b) return a + b end
 fn local_function(
   span: parser.Span,
   name: String,
