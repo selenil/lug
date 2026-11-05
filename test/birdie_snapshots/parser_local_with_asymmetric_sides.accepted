@@ -28,7 +28,7 @@ Block(
             Position(16, 17, 1),
             Position(17, 18, 1),
           ),
-          "1",
+          Int(1),
         ),
         BooleanTrue(Span(
           Position(19, 20, 1),

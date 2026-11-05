@@ -39,7 +39,7 @@ Block(
             Position(8, 9, 1),
             Position(9, 10, 1),
           ),
-          "1",
+          Int(1),
         ),
       ),
       Block(

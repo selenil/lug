@@ -30,7 +30,7 @@ Block(
             Position(19, 20, 1),
             Position(20, 21, 1),
           ),
-          "1",
+          Int(1),
         ),
         BooleanFalse(Span(
           Position(22, 23, 1),

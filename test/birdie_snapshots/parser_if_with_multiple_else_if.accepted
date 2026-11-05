@@ -43,7 +43,7 @@ Block(
             Position(8, 9, 1),
             Position(9, 10, 1),
           ),
-          "1",
+          Int(1),
         ),
       ),
       Block(
@@ -90,7 +90,7 @@ Block(
                 Position(42, 13, 3),
                 Position(43, 14, 3),
               ),
-              "2",
+              Int(2),
             ),
           ),
           Block(
@@ -137,7 +137,7 @@ Block(
                 Position(75, 13, 5),
                 Position(76, 14, 5),
               ),
-              "1",
+              Int(1),
             ),
           ),
           Block(
@@ -184,7 +184,7 @@ Block(
                 Position(109, 13, 7),
                 Position(110, 14, 7),
               ),
-              "2",
+              Int(2),
             ),
           ),
           Block(

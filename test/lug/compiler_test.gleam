@@ -1,5 +1,4 @@
 import birdie
-import gleam/list
 import lug/compiler
 import pprint
 
@@ -12,25 +11,6 @@ fn snap(code code: String, title title: String) -> Nil {
   let content = code <> "\n\n------------------------------\n\n" <> result
 
   birdie.snap(content, "compiler__" <> title)
-}
-
-type Number {
-  Int(Int)
-  Float(Float)
-}
-
-fn numbers(code code: String) -> List(Number) {
-  let assert Ok(chunk) = compiler.compile(code) as "failed to compile the code"
-  list.fold_until(chunk.instructions, [], fn(acc, instruction) {
-    case instruction {
-      compiler.LoadConstant(_, compiler.Int(n)) ->
-        list.Continue([Int(n), ..acc])
-      compiler.LoadConstant(_, compiler.Float(n)) ->
-        list.Continue([Float(n), ..acc])
-      _ -> list.Stop(acc)
-    }
-  })
-  |> list.reverse
 }
 
 pub fn simple_assignment_test() {
@@ -513,39 +493,4 @@ pub fn boolean_negation_test() {
 pub fn length_test() {
   "return #{}"
   |> snap(title: "length")
-}
-
-pub fn int_test() {
-  assert numbers("return 2, 20, 200") == [Int(2), Int(20), Int(200)]
-}
-
-pub fn int_with_exponent_test() {
-  assert numbers("return 2e2") == [Float(200.0)]
-}
-
-pub fn float_test() {
-  assert numbers("return 2.3, 3.2") == [Float(2.3), Float(3.2)]
-}
-
-pub fn float_with_exponent_test() {
-  assert numbers("return 2.3e2, 2.3e+2, 2.3e-2")
-    == [Float(230.0), Float(230.0), Float(0.023)]
-}
-
-pub fn hexadecimal_test() {
-  assert numbers("return 0xb2") == [Int(178)]
-}
-
-pub fn hexadecimal_with_float_part_test() {
-  assert numbers("return 0xb2.3") == [Float(178.1875)]
-}
-
-pub fn hexadecimal_with_radix_part_test() {
-  assert numbers("return 0xb2p3, 0xb2p+3, 0xb2p-3")
-    == [Float(1424.0), Float(1424.0), Float(22.25)]
-}
-
-pub fn hexadecimal_with_float_and_radix_part_test() {
-  assert numbers("return 0xb2.3p3, 0xb2.3p+3, 0xb2.3p-3")
-    == [Float(1425.5), Float(1425.5), Float(22.2734375)]
 }

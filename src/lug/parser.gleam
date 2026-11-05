@@ -1,5 +1,7 @@
 //// Parser for Lua 5.4
 
+import gleam/float
+import gleam/int
 import gleam/list
 import gleam/option
 import gleam/result
@@ -88,11 +90,16 @@ pub type Attribute {
   Close
 }
 
+pub type Numeral {
+  Int(Int)
+  Float(Float)
+}
+
 pub type Expression {
   BooleanNil(location: Span)
   BooleanTrue(location: Span)
   BooleanFalse(location: Span)
-  Numeral(location: Span, value: String)
+  Numeral(location: Span, value: Numeral)
   LiteralString(location: Span, value: String)
   Variable(location: Span, name: String)
   Vararg(location: Span)
@@ -158,6 +165,7 @@ pub type Span {
 }
 
 pub type Error {
+  InvalidNumeral(numeral: String)
   UnexpectedToken(token: lexer.Token, position: lexer.Position)
   UnexpectedAttribute(attribute: String)
   UnexpectedEndOfInput
@@ -618,13 +626,17 @@ fn prefix_expression(tokens: Tokens) -> Result(#(Expression, Tokens), Error) {
     [#(lexer.BFalse, start), ..tokens] ->
       Ok(#(BooleanFalse(token_span(start, lexer.BFalse)), tokens))
 
-    [#(lexer.Int(n), start), ..tokens] | [#(lexer.Float(n), start), ..tokens] ->
-      Ok(#(Numeral(string_span(start, n), n), tokens))
+    [#(lexer.Int(n), start), ..tokens] | [#(lexer.Float(n), start), ..tokens] -> {
+      use numeral <- result.map(numeral(n))
+      #(Numeral(string_span(start, n), numeral), tokens)
+    }
 
     // number with leading dot
     [#(lexer.Dot, start), #(lexer.Int(n), _), ..tokens]
-    | [#(lexer.Dot, start), #(lexer.Float(n), _), ..tokens] ->
-      Ok(#(Numeral(string_span(start, n), "0." <> n), tokens))
+    | [#(lexer.Dot, start), #(lexer.Float(n), _), ..tokens] -> {
+      use numeral <- result.map(numeral("0." <> n))
+      #(Numeral(string_span(start, n), numeral), tokens)
+    }
 
     [#(lexer.String(str), start), ..tokens]
     | [#(lexer.LongString(str), start), ..tokens] ->
@@ -839,6 +851,163 @@ fn bind_expression(
 
     // nothing to bind with
     _ -> Ok(#(prefix, tokens))
+  }
+}
+
+fn numeral(n: String) -> Result(Numeral, Error) {
+  case n {
+    // hexadecimal number
+    "0x" <> number | "0X" <> number -> {
+      let #(number, float_part, radix) = hexadecimal_number(number)
+      use number <- result.try(
+        int.base_parse(number, 16)
+        |> result.replace_error(InvalidNumeral(n)),
+      )
+
+      case float_part, radix {
+        option.None, option.None -> Ok(Int(number))
+        option.None, option.Some(radix) ->
+          case radix_point(int.to_float(number), radix) {
+            Ok(number) -> Ok(Float(number))
+            Error(_) -> Error(InvalidNumeral(n))
+          }
+        option.Some(float_part), option.None ->
+          case hexadecimal_float(int.to_float(number), float_part) {
+            Ok(number) -> Ok(Float(number))
+            Error(_) -> Error(InvalidNumeral(n))
+          }
+        option.Some(float_part), option.Some(radix) -> {
+          use number <- result.try(
+            hexadecimal_float(int.to_float(number), float_part)
+            |> result.replace_error(InvalidNumeral(n)),
+          )
+          case radix_point(number, radix) {
+            Ok(number) -> Ok(Float(number))
+            Error(_) -> Error(InvalidNumeral(n))
+          }
+        }
+      }
+    }
+
+    // decimal number
+    _ -> {
+      case string.contains(n, ".") {
+        True ->
+          case float.parse(n) {
+            Ok(number) -> Ok(Float(number))
+            Error(_) -> Error(InvalidNumeral(n))
+          }
+        False ->
+          case string.split_once(n, "e") {
+            Ok(#(number, exponent)) -> {
+              use number <- result.try(
+                int.parse(number) |> result.replace_error(InvalidNumeral(n)),
+              )
+              use number <- result.map(
+                exponential(int.to_float(number), exponent)
+                |> result.replace_error(InvalidNumeral(n)),
+              )
+              Float(number)
+            }
+            Error(_) ->
+              case string.split_once(n, "E") {
+                Ok(#(number, exponent)) -> {
+                  use number <- result.try(
+                    int.parse(number) |> result.replace_error(InvalidNumeral(n)),
+                  )
+                  use number <- result.map(
+                    exponential(int.to_float(number), exponent)
+                    |> result.replace_error(InvalidNumeral(n)),
+                  )
+                  Float(number)
+                }
+                Error(_) ->
+                  case int.parse(n) {
+                    Ok(number) -> Ok(Int(number))
+                    Error(_) -> Error(InvalidNumeral(n))
+                  }
+              }
+          }
+      }
+    }
+  }
+}
+
+fn exponential(number: Float, exponent: String) -> Result(Float, Nil) {
+  use exponent <- result.try(int.parse(exponent) |> result.map(int.to_float))
+  use times <- result.map(int.power(10, exponent))
+
+  number *. times
+}
+
+fn radix_point(number: Float, radix: String) -> Result(Float, Nil) {
+  use radix <- result.try(int.parse(radix) |> result.map(int.to_float))
+  use times <- result.map(int.power(2, radix))
+
+  number *. times
+}
+
+fn hexadecimal_float(number: Float, float_part: String) -> Result(Float, Nil) {
+  hexadecimal_float_loop(string.to_graphemes(float_part), number, 0)
+}
+
+fn hexadecimal_float_loop(
+  digits: List(String),
+  number: Float,
+  i: Int,
+) -> Result(Float, Nil) {
+  case digits {
+    [] -> Ok(number)
+    [digit, ..rest] -> {
+      use digit <- result.try(
+        int.base_parse(digit, 16) |> result.map(int.to_float),
+      )
+      case int.power(16, int.to_float(i + 1)) {
+        Ok(by) -> {
+          let number = number +. digit /. by
+          hexadecimal_float_loop(rest, number, i + 1)
+        }
+        Error(e) -> Error(e)
+      }
+    }
+  }
+}
+
+fn hexadecimal_number(
+  number: String,
+) -> #(String, option.Option(String), option.Option(String)) {
+  let #(number, float_part) = case string.split_once(number, ".") {
+    Ok(#(number, float_part)) -> #(number, option.Some(float_part))
+    Error(_) -> #(number, option.None)
+  }
+
+  case float_part {
+    option.None ->
+      case string.split_once(number, "p") {
+        Ok(#(number, radix)) -> #(number, float_part, option.Some(radix))
+        Error(_) ->
+          case string.split_once(number, "P") {
+            Ok(#(number, radix)) -> #(number, float_part, option.Some(radix))
+            Error(_) -> #(number, float_part, option.None)
+          }
+      }
+    option.Some(float_part) ->
+      case string.split_once(float_part, "p") {
+        Ok(#(float_part, radix)) -> #(
+          number,
+          option.Some(float_part),
+          option.Some(radix),
+        )
+        Error(_) ->
+          case string.split_once(number, "P") {
+            Ok(#(number, radix)) -> #(
+              number,
+              option.Some(float_part),
+              option.Some(radix),
+            )
+            Error(_) -> #(number, option.Some(float_part), option.None)
+          }
+      }
   }
 }
 
