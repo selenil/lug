@@ -1,0 +1,18 @@
+---
+version: 2.0.0
+title: compiler__for_in_with_multiple_expressions_ending_in_vararg
+---
+for a in b, c, ... do print(a) end
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    GETGLOBAL to: 1, name: b
+    GETGLOBAL to: 2, name: c
+    VARARG starting: 3, length: 2
+    for _ in _ loop
+        GETGLOBAL to: 6, name: print
+        MOVE to: 7, from: 5
+        CALL function: 6, arg_count: 1, result_count: -1
+    end
+end

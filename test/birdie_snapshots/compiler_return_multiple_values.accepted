@@ -1,0 +1,14 @@
+---
+version: 2.0.0
+title: compiler__return_multiple_values
+---
+return 0, 'a string', true
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    LOADCONSTANT in: 1, constant: 0
+    LOADCONSTANT in: 2, constant: "a string"
+    LOADCONSTANT in: 3, constant: true
+    RETURN starting: 1, count: 3
+end

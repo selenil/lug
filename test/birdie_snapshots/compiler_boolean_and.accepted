@@ -1,0 +1,14 @@
+---
+version: 2.0.0
+title: compiler__boolean_and
+---
+return x and y
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    GETGLOBAL to: 2, name: x
+    GETGLOBAL to: 3, name: y
+    AND to: 1, left: 2, right: 3
+    RETURN starting: 1, count: 1
+end

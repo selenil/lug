@@ -1,0 +1,18 @@
+---
+version: 2.0.0
+title: compiler__list_table_ending_with_call
+---
+return { 1, 2, 3, fun() }
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    NEWTABLE to: 1, hash_count: 0, array_count: 3
+    LOADCONSTANT in: 2, constant: 1
+    LOADCONSTANT in: 3, constant: 2
+    LOADCONSTANT in: 4, constant: 3
+    GETGLOBAL to: 5, name: fun
+    CALL function: 5, arg_count: 0, result_count: -1
+    SETLIST table: 1, length: -1
+    RETURN starting: 1, count: 1
+end

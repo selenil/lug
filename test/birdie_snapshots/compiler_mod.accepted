@@ -1,0 +1,14 @@
+---
+version: 2.0.0
+title: compiler__mod
+---
+return 1 % x
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    LOADCONSTANT in: 2, constant: 1
+    GETGLOBAL to: 3, name: x
+    MOD to: 1, left: 2, right: 3
+    RETURN starting: 1, count: 1
+end

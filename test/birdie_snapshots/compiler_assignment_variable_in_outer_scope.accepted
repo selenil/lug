@@ -1,0 +1,17 @@
+---
+version: 2.0.0
+title: compiler__assignment_variable_in_outer_scope
+---
+local a = 1
+do
+  a = 2
+end
+
+
+------------------------------
+
+function main(...) --from line 1 to line 5
+    LOADCONSTANT in: 1, constant: 1
+    LOADCONSTANT in: 2, constant: 2
+    MOVE to: 1, from: 2
+end

@@ -1,0 +1,19 @@
+---
+version: 2.0.0
+title: compiler__generic_for_with_multiple_variables
+---
+for k, v in ipairs(tbl) do print(k, v) end
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    GETGLOBAL to: 5, name: ipairs
+    GETGLOBAL to: 6, name: tbl
+    CALL function: 5, arg_count: 1, result_count: 4
+    for _, _ in _ loop
+        GETGLOBAL to: 8, name: print
+        MOVE to: 9, from: 6
+        MOVE to: 10, from: 7
+        CALL function: 8, arg_count: 2, result_count: -1
+    end
+end

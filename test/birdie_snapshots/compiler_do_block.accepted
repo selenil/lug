@@ -1,0 +1,18 @@
+---
+version: 2.0.0
+title: compiler__do_block
+---
+do
+  print('hello, world!')
+  return 0
+end
+
+------------------------------
+
+function main(...) --from line 1 to line 4
+    GETGLOBAL to: 1, name: print
+    LOADCONSTANT in: 2, constant: "hello, world!"
+    CALL function: 1, arg_count: 1, result_count: -1
+    LOADCONSTANT in: 3, constant: 0
+    RETURN starting: 3, count: 1
+end

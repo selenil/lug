@@ -1,0 +1,12 @@
+---
+version: 2.0.0
+title: compiler__empty_table
+---
+return {}
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    NEWTABLE to: 1, hash_count: 0, array_count: 0
+    RETURN starting: 1, count: 1
+end

@@ -1,0 +1,11 @@
+---
+version: 2.0.0
+title: compiler__label
+---
+::label::
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    label:
+end

@@ -1,0 +1,11 @@
+---
+version: 2.0.0
+title: compiler__local
+---
+local hello = 'world!'
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    LOADCONSTANT in: 1, constant: "world!"
+end

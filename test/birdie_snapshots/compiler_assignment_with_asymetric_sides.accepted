@@ -1,0 +1,16 @@
+---
+version: 2.0.0
+title: compiler__assignment_with_asymetric_sides
+---
+a, b, c = 1, 2
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    LOADCONSTANT in: 1, constant: 1
+    SETGLOBAL name: a, to: 1
+    LOADCONSTANT in: 2, constant: 2
+    SETGLOBAL name: b, to: 2
+    LOADCONSTANT in: 3, constant: nil
+    SETGLOBAL name: c, to: 3
+end

@@ -1,0 +1,20 @@
+---
+version: 2.0.0
+title: compiler__repeat_loop
+---
+repeat a = a + 1 until a > 5
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    loop
+        GETGLOBAL to: 6, name: a
+        LOADCONSTANT in: 7, constant: 1
+        ADD to: 5, left: 6, right: 7
+        SETGLOBAL name: a, to: 5
+        GETGLOBAL to: 2, name: a
+        LOADCONSTANT in: 3, constant: 5
+        GT to: 1, left: 2, right: 3
+        NOT to: 4, not: 1
+    until has_truthy: 4
+end

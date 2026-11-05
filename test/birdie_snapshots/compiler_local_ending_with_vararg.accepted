@@ -1,0 +1,12 @@
+---
+version: 2.0.0
+title: compiler__local_ending_with_vararg
+---
+local a, b, c = 1, ...
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    LOADCONSTANT in: 1, constant: 1
+    VARARG starting: 2, length: 2
+end

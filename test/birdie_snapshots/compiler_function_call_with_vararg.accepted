@@ -1,0 +1,16 @@
+---
+version: 2.0.0
+title: compiler__function_call_with_vararg
+---
+return fun(a, b, ...)
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    GETGLOBAL to: 1, name: fun
+    GETGLOBAL to: 2, name: a
+    GETGLOBAL to: 3, name: b
+    VARARG starting: 4, length: -1
+    CALL function: 1, arg_count: -1, result_count: -1
+    RETURN starting: 1, count: -1
+end

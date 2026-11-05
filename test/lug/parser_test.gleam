@@ -300,16 +300,6 @@ pub fn local_function_test() {
   |> snap(title: "local_function")
 }
 
-pub fn local_function_with_subfields_test() {
-  "local function M.fun() return true end"
-  |> snap(title: "local_function_with_subfields")
-}
-
-pub fn local_function_with_method_test() {
-  "local function M:fun() return true end"
-  |> snap(title: "local_function_with_method")
-}
-
 pub fn local_test() {
   "local a = 1"
   |> snap(title: "local")

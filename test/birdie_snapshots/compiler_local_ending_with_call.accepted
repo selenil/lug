@@ -1,0 +1,12 @@
+---
+version: 2.0.0
+title: compiler__local_ending_with_call
+---
+local a, b = fun()
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    GETGLOBAL to: 1, name: fun
+    CALL function: 1, arg_count: 0, result_count: 2
+end

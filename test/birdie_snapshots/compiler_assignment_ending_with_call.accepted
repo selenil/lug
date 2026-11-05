@@ -1,0 +1,16 @@
+---
+version: 2.0.0
+title: compiler__assignment_ending_with_call
+---
+a, b, c = 1, fun()
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    LOADCONSTANT in: 1, constant: 1
+    SETGLOBAL name: a, to: 1
+    GETGLOBAL to: 2, name: fun
+    CALL function: 2, arg_count: 0, result_count: 2
+    SETGLOBAL name: b, to: 2
+    SETGLOBAL name: c, to: 3
+end

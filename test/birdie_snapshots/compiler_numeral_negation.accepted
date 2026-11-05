@@ -1,0 +1,13 @@
+---
+version: 2.0.0
+title: compiler__numeral_negation
+---
+local a = 1; return -a
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    LOADCONSTANT in: 1, constant: 1
+    UNM to: 2, negate: 1
+    RETURN starting: 2, count: 1
+end

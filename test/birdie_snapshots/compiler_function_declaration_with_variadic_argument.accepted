@@ -1,0 +1,18 @@
+---
+version: 2.0.0
+title: compiler__function_declaration_with_variadic_argument
+---
+function variadic(...) return true end
+
+------------------------------
+
+function main(...) --from line 1 to line 1
+    CLOSURE to: 1, prototype_index: 0
+    SETGLOBAL name: variadic, to: 1
+end
+
+function variadic(...) --from line 1 to line 1
+    VARARGPREP arg_count: 0
+    LOADCONSTANT in: 1, constant: true
+    RETURN starting: 1, count: 1
+end

@@ -1,0 +1,20 @@
+---
+version: 2.0.0
+title: compiler__assignment_variable_in_inner_scope
+---
+a = 'outer'
+do
+  local a = 'inner'
+  a = 0
+end
+
+
+------------------------------
+
+function main(...) --from line 1 to line 6
+    LOADCONSTANT in: 1, constant: "outer"
+    SETGLOBAL name: a, to: 1
+    LOADCONSTANT in: 2, constant: "inner"
+    LOADCONSTANT in: 3, constant: 0
+    MOVE to: 2, from: 3
+end
