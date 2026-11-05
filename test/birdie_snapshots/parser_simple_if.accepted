@@ -1,0 +1,48 @@
+---
+version: 2.0.0
+title: parser__simple_if
+---
+if true then return false end
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(29, 30, 1),
+  ),
+  [
+    If(
+      Span(
+        Position(0, 1, 1),
+        Position(29, 30, 1),
+      ),
+      BooleanTrue(Span(
+        Position(3, 4, 1),
+        Position(7, 8, 1),
+      )),
+      Block(
+        Span(
+          Position(13, 14, 1),
+          Position(26, 27, 1),
+        ),
+        [
+          Return(
+            Span(
+              Position(13, 14, 1),
+              Position(25, 26, 1),
+            ),
+            [
+              BooleanFalse(Span(
+                Position(20, 21, 1),
+                Position(25, 26, 1),
+              )),
+            ],
+          ),
+        ],
+      ),
+      [],
+      None,
+    ),
+  ],
+)

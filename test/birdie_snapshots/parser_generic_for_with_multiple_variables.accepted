@@ -1,0 +1,84 @@
+---
+version: 2.0.0
+title: parser__generic_for_with_multiple_variables
+---
+for k, v in ipairs(tbl) do print(k, v) end
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(42, 43, 1),
+  ),
+  [
+    ForIn(
+      Span(
+        Position(0, 1, 1),
+        Position(42, 43, 1),
+      ),
+      ["k", "v"],
+      [
+        Call(
+          Span(
+            Position(12, 13, 1),
+            Position(23, 24, 1),
+          ),
+          Variable(
+            Span(
+              Position(12, 13, 1),
+              Position(18, 19, 1),
+            ),
+            "ipairs",
+          ),
+          [
+            Variable(
+              Span(
+                Position(19, 20, 1),
+                Position(22, 23, 1),
+              ),
+              "tbl",
+            ),
+          ],
+        ),
+      ],
+      Block(
+        Span(
+          Position(27, 28, 1),
+          Position(39, 40, 1),
+        ),
+        [
+          FunctionCall(
+            Span(
+              Position(27, 28, 1),
+              Position(38, 39, 1),
+            ),
+            Variable(
+              Span(
+                Position(27, 28, 1),
+                Position(32, 33, 1),
+              ),
+              "print",
+            ),
+            [
+              Variable(
+                Span(
+                  Position(33, 34, 1),
+                  Position(34, 35, 1),
+                ),
+                "k",
+              ),
+              Variable(
+                Span(
+                  Position(36, 37, 1),
+                  Position(37, 38, 1),
+                ),
+                "v",
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  ],
+)

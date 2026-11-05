@@ -1,0 +1,101 @@
+---
+version: 2.0.0
+title: parser__function_call_with_table
+---
+run { config = { debug = true } }
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(33, 34, 1),
+  ),
+  [
+    FunctionCall(
+      Span(
+        Position(0, 1, 1),
+        Position(33, 34, 1),
+      ),
+      Variable(
+        Span(
+          Position(0, 1, 1),
+          Position(3, 4, 1),
+        ),
+        "run",
+      ),
+      [
+        Table(
+          Span(
+            Position(4, 5, 1),
+            Position(33, 34, 1),
+          ),
+          [
+            RecordField(
+              Span(
+                Position(6, 7, 1),
+                Position(31, 32, 1),
+              ),
+              LiteralString(
+                Span(
+                  Position(6, 7, 1),
+                  Position(12, 13, 1),
+                ),
+                "config",
+              ),
+              Table(
+                Span(
+                  Position(15, 16, 1),
+                  Position(31, 32, 1),
+                ),
+                [
+                  RecordField(
+                    Span(
+                      Position(
+                        17,
+                        18,
+                        1,
+                      ),
+                      Position(
+                        29,
+                        30,
+                        1,
+                      ),
+                    ),
+                    LiteralString(
+                      Span(
+                        Position(
+                          17,
+                          18,
+                          1,
+                        ),
+                        Position(
+                          22,
+                          23,
+                          1,
+                        ),
+                      ),
+                      "debug",
+                    ),
+                    BooleanTrue(Span(
+                      Position(
+                        25,
+                        26,
+                        1,
+                      ),
+                      Position(
+                        29,
+                        30,
+                        1,
+                      ),
+                    )),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  ],
+)

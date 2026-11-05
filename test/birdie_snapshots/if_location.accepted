@@ -1,6 +1,0 @@
----
-version: 2.0.0
-title: if_location
----
-if a == 1 then return a end
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔

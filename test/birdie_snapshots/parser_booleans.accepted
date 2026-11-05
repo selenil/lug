@@ -1,0 +1,48 @@
+---
+version: 2.0.0
+title: parser__booleans
+---
+a, b = true, false
+
+------------------------------
+
+Block(
+  Span(
+    Position(0, 1, 1),
+    Position(18, 19, 1),
+  ),
+  [
+    Assignment(
+      Span(
+        Position(0, 1, 1),
+        Position(18, 19, 1),
+      ),
+      [
+        Variable(
+          Span(
+            Position(0, 1, 1),
+            Position(1, 2, 1),
+          ),
+          "a",
+        ),
+        Variable(
+          Span(
+            Position(3, 4, 1),
+            Position(4, 5, 1),
+          ),
+          "b",
+        ),
+      ],
+      [
+        BooleanTrue(Span(
+          Position(7, 8, 1),
+          Position(11, 12, 1),
+        )),
+        BooleanFalse(Span(
+          Position(13, 14, 1),
+          Position(18, 19, 1),
+        )),
+      ],
+    ),
+  ],
+)
