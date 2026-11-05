@@ -18,7 +18,6 @@ pub type Chunk {
     instructions: List(Instruction),
     prototypes: dict.Dict(Int, Chunk),
     upvalues: dict.Dict(Int, Int),
-    constant_registers: List(AttributeRegister),
     arg_count: Int,
     is_vararg: Bool,
     span: Span,
@@ -116,7 +115,6 @@ pub type Span {
 pub type Context {
   Context(
     scopes: dict.Dict(Int, Scope),
-    constant_registers: List(AttributeRegister),
     next_register: Int,
     next_upvalue: Int,
     next_prototype: Int,
@@ -141,11 +139,6 @@ pub type Variable {
   Upvalue(register: Int)
 }
 
-pub type AttributeRegister {
-  Const(Int)
-  Close(Int)
-}
-
 pub fn compile(code: String) -> Result(Chunk, parser.Error) {
   parser.parse(code) |> result.map(compile_ast)
 }
@@ -157,18 +150,12 @@ pub fn compile_ast(ast: parser.Block) -> Chunk {
 fn do_compile(ast: parser.Block, context: Context, chunk: Chunk) -> Chunk {
   let #(context, instructions) = block(ast, context)
 
-  Chunk(
-    ..chunk,
-    instructions:,
-    prototypes: context.prototypes,
-    constant_registers: context.constant_registers,
-  )
+  Chunk(..chunk, instructions:, prototypes: context.prototypes)
 }
 
 fn init_context() -> Context {
   Context(
     scopes: dict.new(),
-    constant_registers: [],
     next_register: 1,
     next_upvalue: 0,
     next_prototype: 0,
@@ -177,6 +164,34 @@ fn init_context() -> Context {
     prototypes: dict.new(),
     upvalues: dict.new(),
   )
+}
+
+fn scan_local_variables(context: Context, block: parser.Block) -> Context {
+  list.fold(block.statements, context, fn(context, stmt) {
+    case stmt {
+      parser.LocalFunction(_, name, _, _) ->
+        insert_variable_in_scope(
+          context,
+          context.next_scope - 1,
+          name,
+          Local(context.next_register),
+        )
+        |> advance
+      parser.Local(_, names, _) ->
+        list.fold(names, context, fn(context, variable) {
+          let parser.AttributeName(_attr, name) = variable
+          let local_register = context.next_register
+          insert_variable_in_scope(
+            context,
+            context.next_scope - 1,
+            name,
+            Local(local_register),
+          )
+          |> advance
+        })
+      _ -> context
+    }
+  })
 }
 
 fn insert_variable_in_scope(
@@ -263,7 +278,6 @@ fn enter_function(
     Context(
       prototypes: dict.new(),
       next_prototype: 0,
-      constant_registers: [],
       next_register: 1,
       next_upvalue: 0,
       next_scope: context.next_scope + 1,
@@ -296,7 +310,6 @@ fn init_chunk(ast: parser.Block) -> Chunk {
     instructions: [],
     prototypes: dict.new(),
     upvalues: dict.new(),
-    constant_registers: [],
     arg_count: 0,
     is_vararg: True,
     span: Span(ast.location.start.line, ast.location.end.line),
@@ -305,32 +318,11 @@ fn init_chunk(ast: parser.Block) -> Chunk {
 
 fn block(block: parser.Block, context: Context) {
   use context <- enter_block(context)
-  // scan for local variables
-  list.fold(block.statements, context, fn(context, stmt) {
-    case stmt {
-      parser.LocalFunction(_, name, _, _) ->
-        insert_variable_in_scope(
-          context,
-          context.next_scope - 1,
-          name,
-          Local(context.next_register),
-        )
-        |> advance
-      parser.Local(_, names, _) ->
-        list.fold(names, context, fn(context, variable) {
-          let parser.AttributeName(_, name) = variable
-          insert_variable_in_scope(
-            context,
-            context.next_scope - 1,
-            name,
-            Local(context.next_register),
-          )
-          |> advance
-        })
-      _ -> context
-    }
-  })
-  |> do_block(block.statements, _, [])
+  let #(context, instructions) =
+    scan_local_variables(context, block)
+    |> do_block(block.statements, _, [])
+
+  #(context, instructions)
 }
 
 fn do_block(
@@ -1351,7 +1343,6 @@ fn closure(
   let prototypes = context.prototypes
   let prototype_index = context.next_prototype
 
-  let constant_registers = context.constant_registers
   let arg_count =
     list.count(parameters, fn(parameter) {
       case parameter {
@@ -1413,7 +1404,6 @@ fn closure(
       source: option.None,
       prototypes: context.prototypes,
       upvalues: dict.new(),
-      constant_registers: context.constant_registers,
       arg_count:,
       is_vararg: has_vararg,
       span: Span(span.start.line, span.end.line),
@@ -1422,7 +1412,6 @@ fn closure(
   let context =
     Context(
       ..context,
-      constant_registers:,
       next_prototype: prototype_index + 1,
       prototypes: dict.insert(prototypes, prototype_index, prototype),
     )

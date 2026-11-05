@@ -265,11 +265,6 @@ pub fn local_ending_with_call_test() {
   |> snap(title: "local_ending_with_call")
 }
 
-pub fn local_with_attributes_test() {
-  "local a <const>, b <close> = 1, 2"
-  |> snap(title: "local_with_attributes")
-}
-
 pub fn return_test() {
   "return 0"
   |> snap(title: "return")
