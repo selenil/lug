@@ -24,75 +24,171 @@ pub type Chunk {
   )
 }
 
+/// Instruction set of the Lua's VM.
+///
+/// The VM is implemented as a register-based virtual machine, with instructions using
+/// integers as indexes to registers.
 pub type Instruction {
   // move instructions
+  // Copies the value in `source` to `destination`
   Move(destination: Int, source: Int)
+  // Loads `value` into `destination`
   LoadConstant(destination: Int, value: Constant)
+  // Copies the value of global variable `name` into `destination`
   GetGlobal(destination: Int, name: String)
+  // Sets the value of global variable `name` to `value`
   SetGlobal(name: String, value: Int)
+  // Copies the value in `Upvalues[index]` into `destination`
   GetUpvalue(destination: Int, index: Int)
+  // Sets the value in `Upvalues[index]` to `value`
   SetUpvalue(index: Int, value: Int)
 
   // table instructions
+  // Creates a new table with a hash part of length `hash_count` and
+  // an array part of length `array_count`, then saves a reference to
+  // the new table in `destination`
   NewTable(destination: Int, hash_count: Int, array_count: Int)
+  // Copies the value of `table[key]` into `destination`
+  // Might trigger the `"__index"` metamethod
   GetTable(destination: Int, table: Int, key: Int)
+  // Sets the value in `table[key]` to `value`
+  // Might trigger the `"__newindex"` metamethod
   SetTable(table: Int, key: Int, value: Int)
+  // Sets the array part of `table` to the range of consecutive values from `table + 1`
+  // up to `table + length + 1`
   SetList(table: Int, length: Int)
 
   // function instructions
+  // Copies `length` vararg arguments to consecutive locations starting from `start`
+  Vararg(start: Int, length: Int)
+  // Sets up the vararg arguments in a function, which are the values passed as arguments,
+  // ahead of `arg_count` fixed arguments.
+  // This is always the first instruction in a vararg function.
   VarargPrep(arg_count: Int)
+  // Calls the function in `base`, passing to it as arguments the values from `base + 1`
+  // up to `base + arg_count` and writing `result_count` values returned from the call
+  // in consecutive registers starting at `base`.
+  // `arg_count` can be `-1` to indicate an unknown number of values will be passed as arguments,
+  // this will be the case when the last argument to a call is another call.
+  // `result_count` can be `-1` to indicate an unknown number of values will be returned from the call.
+  // Might trigger the `"__call"` metamethod.
   Call(base: Int, arg_count: Int, result_count: Int)
+  // Returns `result_count` values in consecutive registers starting from `start`.
+  // `result_count` could be `-1` to indicate an unknown number of values will be returned
   Return(start: Int, result_count: Int)
+  // Instantiates the function prototype at index `prototype`
+  // and saves a reference to the new instance in `destination`
   Closure(destination: Int, prototype: Int)
 
   // branching instructions
+  // if the value in `condition` is falsy (either `false` or `nil`), execute the `else_` instructions,
+  // otherwise execute the `then` instructions
   Test(condition: Int, then: List(Instruction), else_: List(Instruction))
+  // Creates a `name` label
   Label(name: String)
+  // Go to the code at label `to`
   Goto(to: String)
 
   // looping instructions
+  // Enters a two-stage loop:
+  //   - Execute `condition_instructions`, then check if the value in `condition` is falsy (either `false` or `nil`),
+  //     if it is exit the loop, otherwise continue with the next stage.
+  //   - Execute `body`, then continue with the next stage.
+  // The value of `eval_condition_before_block` determines the order in which the stages will be performed.
   Loop(
     condition: Int,
     condition_instructions: List(Instruction),
     eval_condition_before_block: Bool,
     body: List(Instruction),
   )
+  // Checks if `left` is lesser than or equal to `right` if `by` is positive,
+  // otherwise checks if `left` is greater than or equal to `right`.
+  // The result is then saved into `destination`.
   ForTest(destination: Int, left: Int, right: Int, by: Int)
+  // Performs a generic for loop (a "for in"), by keeping four values in consecutive registers
+  // from `start` to `start + 3`, plus `count` values in consecutive registers from `start + 4`
+  // to `start + count + 3`, then executing `body` in each iteration of the loop.
   TForLoop(start: Int, count: Int, body: List(Instruction))
+  // Breaks from the current loop
   Break
 
   // arithmetic instructions
+  // Adds `left` and `right` and saves the result in `destination`
+  // Might trigger the `"__add"` metamethod
   Add(destination: Int, left: Int, right: Int)
+  // Substracts `left` and `right` and saves the result in `destination`
+  // Might trigger the `"__sub"` metamethod
   Sub(destination: Int, left: Int, right: Int)
+  // Multiplies `left` and `right` and saves the result in `destination`
+  // Might trigger the `"__mul"` metamethod
   Mul(destination: Int, left: Int, right: Int)
+  // Divides `left` and `right` and saves the result in `destination`
+  // Might trigger the `"__div"` metamethod
   Div(destination: Int, left: Int, right: Int)
+  // Floor divides `left` and `right` and saves the result in `destination`
+  // Might trigger the `"__idiv"` metamethod
   FloorDiv(destination: Int, left: Int, right: Int)
+  // Raises `left` to `right` and saves the result in `destination`
+  // Might trigger the `"__pow"` metamethod
   Pow(destination: Int, left: Int, right: Int)
+  // `left` and `right` and saves the result in `destination`
+  // Might trigger the `"__mod"` metamethod
   Mod(destination: Int, left: Int, right: Int)
+  // Negates `value`
+  // Might trigger the "__unm" metamethod
   Unm(destination: Int, value: Int)
 
-  // equality instructions
-  Eq(destination: Int, left: Int, right: Int)
-  NotEq(destination: Int, left: Int, right: Int)
-  Gt(destination: Int, left: Int, right: Int)
-  GtEq(destination: Int, left: Int, right: Int)
-  Lt(destination: Int, left: Int, right: Int)
-  LtEq(destination: Int, left: Int, right: Int)
-
-  // bitwise instructions
-  BwAnd(destination: Int, left: Int, right: Int)
-  BwOr(destination: Int, left: Int, right: Int)
-  BwXor(destination: Int, left: Int, right: Int)
-  BwNot(destination: Int, source: Int)
-  ShiftLeft(destination: Int, left: Int, right: Int)
-  ShiftRight(destination: Int, left: Int, right: Int)
-
   // boolean instructions
+  // Performs a boolean AND between `left` and `right` and saves the result in `destination`
   And(destination: Int, left: Int, right: Int)
+  // Performs a boolean OR between `left` and `right` and saves the result in `destination`
   Or(destination: Int, left: Int, right: Int)
+  // Performs a boolean NOT on `source` and saves the result in `destination`
   Not(destination: Int, source: Int)
 
+  // bitwise instructions
+  // Performs a bitwise AND between `left` and `right` and saves the result in `destination`
+  // Might trigger the `"__band"` metamethod
+  BwAnd(destination: Int, left: Int, right: Int)
+  // Performs a bitwise OR between `left` and `right` and saves the result in `destination`
+  // Might trigger the `"__bor"` metamethod
+  BwOr(destination: Int, left: Int, right: Int)
+  // Performs a bitwise XOR between `left` and `right` and saves the result in `destination`
+  // Might trigger the `"__bxor"` metamethod
+  BwXor(destination: Int, left: Int, right: Int)
+  // Performs a bitwise NOT on `source` and saves the result in `destination`
+  // Might trigger the `"__bnot"` metamethod
+  BwNot(destination: Int, source: Int)
+  // Performs a bitwise left shift between `left` and `right` and saves the result in `destination`
+  // Might trigger the `"__shl"` metamethod
+  ShiftLeft(destination: Int, left: Int, right: Int)
+  // Performs a bitwise right shift between `left` and `right` and saves the result in `destination`
+  // Might trigger the `"__shr"` metamethod
+  ShiftRight(destination: Int, left: Int, right: Int)
+
+  // equality instructions
+  // Checks if `left` and `right` are equals and saves the result in `destination`
+  // Might trigger the `"__eq"` metamethod
+  Eq(destination: Int, left: Int, right: Int)
+  // Checks if `left` and `right` are not equals and saves the result in `destination`
+  NotEq(destination: Int, left: Int, right: Int)
+  // Checks if `left` is greater than `right` and saves the result in `destination`
+  Gt(destination: Int, left: Int, right: Int)
+  // Checks if `left` is greater than or equal to `right` and saves the result in `destination`
+  GtEq(destination: Int, left: Int, right: Int)
+  // Checks if `left` is lesser than `right` and saves the result in `destination`
+  // Might trigger the `"__lt"` metamethod
+  Lt(destination: Int, left: Int, right: Int)
+  // Checks if `left` is lesser than or equal to `right` and saves the result in `destination`
+  // Might trigger the `"__le"` metamethod
+  LtEq(destination: Int, left: Int, right: Int)
+
+  // strings instructions
+  // Computes the length of `value` and saves the result in `destination`
+  // Might trigger the `"__len"` metamethod
   Length(destination: Int, value: Int)
+  // Concats `left` and `right` and saves the result in `destination`
+  // Might trigger the `"__concat"` metamethod
   Concat(destination: Int, left: Int, right: Int)
 }
 
@@ -1846,7 +1942,11 @@ pub fn chunk_to_string(chunk: Chunk) -> String {
     <> string.join(list.repeat("_", chunk.arg_count), ", ")
 
   case chunk.is_vararg {
-    True -> initial <> "..."
+    True ->
+      case chunk.arg_count {
+        0 -> initial <> "..."
+        _ -> initial <> ", " <> "..."
+      }
     False -> initial
   }
   <> ")"
@@ -1908,16 +2008,16 @@ fn instruction_to_string(
       identation,
     )
     SetGlobal(name, value) -> #(
-      "SETGLOBAL" <> "name: " <> name <> ", " <> "to: " <> int.to_string(value),
+      "SETGLOBAL " <> "name: " <> name <> ", " <> "to: " <> int.to_string(value),
       identation,
     )
-    SetUpvalue(value, index) -> #(
+    SetUpvalue(upvalue, value) -> #(
       "SETUPVALUE "
-        <> "value: "
-        <> int.to_string(value)
-        <> ", "
         <> "upvalue: "
-        <> int.to_string(index),
+        <> int.to_string(upvalue)
+        <> ", "
+        <> "to: "
+        <> int.to_string(value),
       identation,
     )
     NewTable(destination, hash_count, array_count) -> #(
@@ -1965,43 +2065,13 @@ fn instruction_to_string(
         <> int.to_string(length),
       identation,
     )
-    SetListMulti(table, from, array_count, length) -> #(
-      "SETLISTMULTI "
-        <> "table: "
-        <> int.to_string(table)
-        <> ", "
-        <> "starting: "
-        <> int.to_string(from)
-        <> ", "
-        <> "array_count: "
-        <> int.to_string(array_count)
-        <> ", "
-        <> "length: "
-        <> int.to_string(length),
-      identation,
-    )
-    SetListVararg(table, from, array_count, length) -> #(
-      "SETLISTVARARG "
-        <> "table: "
-        <> int.to_string(table)
-        <> ", "
-        <> "starting: "
-        <> int.to_string(from)
-        <> ", "
-        <> "array_count: "
-        <> int.to_string(array_count)
-        <> ", "
-        <> "length: "
-        <> int.to_string(length),
-      identation,
-    )
-    Vararg(start, args) -> #(
+    Vararg(start, length) -> #(
       "VARARG "
         <> "starting: "
         <> int.to_string(start)
         <> ", "
-        <> "args: "
-        <> int.to_string(args),
+        <> "length: "
+        <> int.to_string(length),
       identation,
     )
     VarargPrep(start) -> #(
@@ -2024,30 +2094,6 @@ fn instruction_to_string(
       "RETURN "
         <> "starting: "
         <> int.to_string(start)
-        <> ", "
-        <> "count: "
-        <> int.to_string(result_count),
-      identation,
-    )
-    ReturnVararg(start, fixed_result_count, result_count) -> #(
-      "RETURNVARARG "
-        <> "starting: "
-        <> int.to_string(start)
-        <> ", "
-        <> "fixed: "
-        <> int.to_string(fixed_result_count)
-        <> ", "
-        <> "count: "
-        <> int.to_string(result_count),
-      identation,
-    )
-    ReturnMulti(start, fixed_result_count, result_count) -> #(
-      "RETURNVARARG "
-        <> "starting: "
-        <> int.to_string(start)
-        <> ", "
-        <> "fixed: "
-        <> int.to_string(fixed_result_count)
         <> ", "
         <> "count: "
         <> int.to_string(result_count),
@@ -2131,7 +2177,7 @@ fn instruction_to_string(
         identation,
       )
     }
-    TForLoop(start, count, body) -> {
+    TForLoop(_start, count, body) -> {
       let body =
         list.fold(body, "", fn(acc, instruction) {
           let #(instruction, _) =
@@ -2144,18 +2190,11 @@ fn instruction_to_string(
         list.repeat("_", count)
         |> string.join(", ")
 
-      let iterators =
-        int.range(from: 0, to: count, with: [], run: fn(acc, i) {
-          [int.to_string(start + i + 1), ..acc]
-        })
-        |> list.reverse
-        |> string.join(", ")
-
       #(
         "for "
           <> names
           <> " in "
-          <> iterators
+          <> "_"
           <> " loop\n"
           <> body
           <> string.repeat("    ", identation)
@@ -2327,8 +2366,10 @@ fn instruction_to_string(
         <> ", "
         <> "left: "
         <> int.to_string(lhs)
+        <> ", "
         <> "right: "
         <> int.to_string(rhs)
+        <> ", "
         <> "by: "
         <> int.to_string(by),
       identation,
