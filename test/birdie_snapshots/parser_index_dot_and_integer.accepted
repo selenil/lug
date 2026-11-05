@@ -48,7 +48,7 @@ Block(
               Position(13, 14, 1),
               Position(14, 15, 1),
             ),
-            "2",
+            Int(2),
           ),
         ),
       ],

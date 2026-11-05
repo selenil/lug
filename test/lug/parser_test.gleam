@@ -1,4 +1,7 @@
 import birdie
+import gleam/float
+import gleam/int
+import gleam/list
 import gleam/string
 import lug/parser
 import pprint
@@ -38,7 +41,11 @@ fn arithmetic_expression_to_prefix_notation(
       <> " "
       <> arithmetic_expression_to_prefix_notation(rhs)
       <> ")"
-    parser.Numeral(_span, n) -> n
+    parser.Numeral(_span, n) ->
+      case n {
+        parser.Int(n) -> int.to_string(n)
+        parser.Float(n) -> float.to_string(n)
+      }
     parser.Variable(_span, var) -> var
     _ -> panic as "not number, variable or arithmetic expression"
   }
@@ -143,6 +150,19 @@ fn highlight_code(
         }
       }
   }
+}
+
+fn numbers(code code: String) -> List(parser.Numeral) {
+  let assert Ok(parser.Block(_, [parser.Return(_, numbers)])) =
+    parser.parse(code)
+
+  list.fold_until(numbers, [], fn(acc, number) {
+    case number {
+      parser.Numeral(_, number) -> list.Continue([number, ..acc])
+      _ -> list.Stop(acc)
+    }
+  })
+  |> list.reverse
 }
 
 pub fn label_test() {
@@ -348,26 +368,6 @@ pub fn nil_test() {
 pub fn booleans_test() {
   "a, b = true, false"
   |> snap(title: "booleans")
-}
-
-pub fn integers_test() {
-  "a, b, c, d = 1, 2, 30, 500"
-  |> snap(title: "integers")
-}
-
-pub fn hexadecimal_integers_test() {
-  "a, b, c = 0x1, 0XabD3, 0x47Bc"
-  |> snap(title: "hexadecimal_integers")
-}
-
-pub fn floats_test() {
-  "a, b, c, d = 1.1, 2.12, 3.14, 4.51128"
-  |> snap(title: "floats")
-}
-
-pub fn hexadecimal_floats_test() {
-  "a, b, c  = 0x2.D1c, 0X3.aBe-2, -0xe1.8ap-1"
-  |> snap(title: "hexadecimal_floats")
 }
 
 pub fn single_quoted_string_test() {
@@ -933,6 +933,42 @@ pub fn index_location_test() {
 pub fn index_dot_location_test() {
   "return tbl.a"
   |> snap_expression_location(title: "index_dot_location")
+}
+
+pub fn int_test() {
+  assert numbers("return 2, 20, 200")
+    == [parser.Int(2), parser.Int(20), parser.Int(200)]
+}
+
+pub fn int_with_exponent_test() {
+  assert numbers("return 2e2") == [parser.Float(200.0)]
+}
+
+pub fn float_test() {
+  assert numbers("return 2.3, 3.2") == [parser.Float(2.3), parser.Float(3.2)]
+}
+
+pub fn float_with_exponent_test() {
+  assert numbers("return 2.3e2, 2.3e+2, 2.3e-2")
+    == [parser.Float(230.0), parser.Float(230.0), parser.Float(0.023)]
+}
+
+pub fn hexadecimal_test() {
+  assert numbers("return 0xb2") == [parser.Int(178)]
+}
+
+pub fn hexadecimal_with_float_part_test() {
+  assert numbers("return 0xb2.3") == [parser.Float(178.1875)]
+}
+
+pub fn hexadecimal_with_radix_part_test() {
+  assert numbers("return 0xb2p3, 0xb2p+3, 0xb2p-3")
+    == [parser.Float(1424.0), parser.Float(1424.0), parser.Float(22.25)]
+}
+
+pub fn hexadecimal_with_float_and_radix_part_test() {
+  assert numbers("return 0xb2.3p3, 0xb2.3p+3, 0xb2.3p-3")
+    == [parser.Float(1425.5), parser.Float(1425.5), parser.Float(22.2734375)]
 }
 
 pub fn empty_test() {

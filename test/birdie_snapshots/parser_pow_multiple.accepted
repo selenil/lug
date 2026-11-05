@@ -29,7 +29,7 @@ Block(
               Position(7, 8, 1),
               Position(8, 9, 1),
             ),
-            "1",
+            Int(1),
           ),
           BinaryOperation(
             Span(
@@ -55,7 +55,7 @@ Block(
                   Position(15, 16, 1),
                   Position(16, 17, 1),
                 ),
-                "3",
+                Int(3),
               ),
               Variable(
                 Span(

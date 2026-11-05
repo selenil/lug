@@ -28,14 +28,14 @@ Block(
             Position(16, 17, 1),
             Position(17, 18, 1),
           ),
-          "1",
+          Int(1),
         ),
         Numeral(
           Span(
             Position(19, 20, 1),
             Position(20, 21, 1),
           ),
-          "2",
+          Int(2),
         ),
         LiteralString(
           Span(

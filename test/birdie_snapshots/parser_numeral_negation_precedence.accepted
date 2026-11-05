@@ -29,14 +29,14 @@ Block(
               Position(7, 8, 1),
               Position(9, 10, 1),
             ),
-            "-1",
+            Int(-1),
           ),
           Numeral(
             Span(
               Position(12, 13, 1),
               Position(14, 15, 1),
             ),
-            "-2",
+            Int(-2),
           ),
         ),
       ],

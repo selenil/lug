@@ -23,14 +23,14 @@ Block(
           Position(8, 9, 1),
           Position(9, 10, 1),
         ),
-        "0",
+        Int(0),
       ),
       Numeral(
         Span(
           Position(11, 12, 1),
           Position(12, 13, 1),
         ),
-        "5",
+        Int(5),
       ),
       None,
       Block(

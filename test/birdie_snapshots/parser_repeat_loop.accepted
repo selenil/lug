@@ -35,7 +35,7 @@ Block(
             Position(27, 28, 1),
             Position(28, 29, 1),
           ),
-          "5",
+          Int(5),
         ),
       ),
       Block(
@@ -77,7 +77,7 @@ Block(
                     Position(15, 16, 1),
                     Position(16, 17, 1),
                   ),
-                  "1",
+                  Int(1),
                 ),
               ),
             ],

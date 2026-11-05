@@ -23,7 +23,7 @@ Block(
             Position(10, 11, 1),
             Position(11, 12, 1),
           ),
-          "0",
+          Int(0),
         ),
       ],
     ),
