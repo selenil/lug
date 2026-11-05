@@ -796,7 +796,7 @@ fn bind_expression(
       let name_span = string_span(start, method)
 
       let span = Span(prefix.location.start, name_span.end)
-      let method = Index(span, prefix, Variable(name_span, method))
+      let method = Index(span, prefix, LiteralString(name_span, method))
 
       case tokens {
         [#(lexer.LeftParen, _), ..tokens] -> {

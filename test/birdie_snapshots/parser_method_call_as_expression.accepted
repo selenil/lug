@@ -36,7 +36,7 @@ Block(
               ),
               "obj",
             ),
-            Variable(
+            LiteralString(
               Span(
                 Position(13, 14, 1),
                 Position(16, 17, 1),

@@ -7,14 +7,11 @@ obj:method(a, b)
 ------------------------------
 
 function main(...) --from line 1 to line 1
-    GETGLOBAL to: 1, name: obj
-    LOADCONSTANT in: 2, constant: "method"
-    GETTABLE to: 3, table: 1, index: 2
-    GETGLOBAL to: 7, name: obj
-    GETGLOBAL to: 8, name: a
-    GETGLOBAL to: 9, name: b
-    MOVE to: 4, from: 7
-    MOVE to: 5, from: 8
-    MOVE to: 6, from: 9
-    CALL function: 3, arg_count: 3, result_count: -1
+    GETGLOBAL to: 2, name: obj
+    LOADCONSTANT in: 3, constant: "method"
+    GETTABLE to: 1, table: 2, index: 3
+    GETGLOBAL to: 2, name: obj
+    GETGLOBAL to: 3, name: a
+    GETGLOBAL to: 4, name: b
+    CALL function: 1, arg_count: 3, result_count: -1
 end
